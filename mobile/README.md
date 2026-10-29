@@ -38,8 +38,7 @@ Proyek ini dikembangkan oleh mahasiswa Program Studi Teknik Informatika, Politek
 * **Frontend / Mobile App:** [Flutter](https://flutter.dev/) (Dart)
 * **Machine Learning:** Python, TensorFlow / Keras (Model arsitektur CNN)
 * **Dataset:**
-  * [Skin Disease Dataset](https://www.kaggle.com/datasets/pacificrm/skindiseasedataset) (Kaggle)
-  * Indonesian Skincare Dataset (Female Daily)
+  * https://drive.google.com/drive/folders/1ApXxdt1RROElUlyw7yfVWyMNm6LQxAMP?usp=sharing
 
 ---
 
