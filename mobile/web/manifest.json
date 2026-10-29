@@ -1,0 +1,9 @@
+{
+  "name": "SkinSight",
+  "short_name": "SkinSight",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#F8F7FC",
+  "theme_color": "#7C4DFF",
+  "description": "Prototype analisis awal kondisi kulit berbasis Flutter."
+}

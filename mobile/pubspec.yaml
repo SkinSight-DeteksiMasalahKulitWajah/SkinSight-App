@@ -1,0 +1,67 @@
+name: skinsight
+description: SkinSight - modern Flutter prototype for skin condition screening.
+publish_to: "none"
+version: 1.1.0+8
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  provider: ^6.1.2
+  image_picker: ^1.1.2
+  google_fonts: ^6.2.1
+  flutter_animate: ^4.5.2
+  camera: ^0.12.1
+  shared_preferences: ^2.5.6
+  supabase_flutter: ^2.9.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  # Semua aset non-kode berada di folder assets/ di root project (bukan lib/).
+  # Daftar folder tidak rekursif: setiap subfolder harus didaftarkan sendiri.
+  # assets/images/ (ilustrasi 2D lama) sengaja TIDAK dibundel lagi.
+  assets:
+    - assets/photos/
+    - assets/3d/
+  fonts:
+    # Plus Jakarta Sans & Cormorant Garamond: SIL Open Font License
+    # (lihat OFL-*.txt). Hanya daftarkan font yang benar-benar dipakai:
+    # di Flutter Web SEMUA font di sini diunduh sebelum frame pertama.
+    - family: PlusJakartaSans
+      fonts:
+        - asset: assets/fonts/PlusJakartaSans-Light.ttf
+          weight: 300
+        - asset: assets/fonts/PlusJakartaSans-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/PlusJakartaSans-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/PlusJakartaSans-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/PlusJakartaSans-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/PlusJakartaSans-ExtraBold.ttf
+          weight: 800
+    - family: CormorantGaramond
+      fonts:
+        - asset: assets/fonts/CormorantGaramond-Light.ttf
+          weight: 300
+        - asset: assets/fonts/CormorantGaramond-LightItalic.ttf
+          weight: 300
+          style: italic
+        - asset: assets/fonts/CormorantGaramond-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/CormorantGaramond-Medium.ttf
+          weight: 500
+    - family: Kalam
+      fonts:
+        - asset: assets/fonts/Kalam-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Kalam-Bold.ttf
+          weight: 700
