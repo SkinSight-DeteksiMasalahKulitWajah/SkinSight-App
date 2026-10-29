@@ -14,8 +14,8 @@ Proyek ini dikembangkan oleh mahasiswa Program Studi Teknik Informatika, Politek
 | **Moch. Adam Arsyad F.** | 244107020104 | Project Manager |
 | **Bintang Pancahaya P.** | 244107020115 | Mobile Developer |
 | **Rafazl Radana D.** | 244107020082 | ML Engineer |
-| **Muchammad Ibrahim A. A** | 244107020062 | UI/UX Designer |
-| **Anthea Amodia Syaffah A.**| 244107020024 | QA / Dokumentasi |
+| **Muchammad Ibrahim A. A** | 244107020062 | Backend Dev |
+| **Anthea Amodia Syaffah A.**| 244107020024 | UI/UX Designer |
 
 **Dosen Pembimbing:**
 * Titis Octary Satrio, S.ST., M.MT. (Penjaminan Mutu Perangkat Lunak)
