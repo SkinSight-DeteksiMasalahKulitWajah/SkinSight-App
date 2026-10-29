@@ -1,86 +1,117 @@
-# SkinSight — feature-first monorepo
+# SkinSight 
 
-Repo ini disusun sebagai **satu monorepo** untuk aplikasi mobile, backend, ML, infrastruktur, dan pengujian. Folder backend/ML/infrastructure saat ini adalah kerangka kosong karena arsip yang diberikan hanya berisi `lib/` Flutter; tidak ada `pubspec.yaml`, implementasi backend, model ML, asset, atau konfigurasi deployment dalam arsip tersebut.
+> **Aplikasi Deteksi Kondisi Kulit Tubuh Berbasis Machine Learning**
 
-## Struktur utama
+SkinSight adalah aplikasi mobile cerdas yang membantu pengguna mengidentifikasi kondisi kulit wajah secara presisi. Dengan menggabungkan teknologi pemindaian citra kulit berbasis Machine Learning dan analisis gaya hidup pengguna, SkinSight memberikan rekomendasi bahan aktif (ingredients), produk skincare terkurasi, serta edukasi pola makan yang dipersonalisasi.
 
+---
+
+## Tim Pengembang (Kelompok 2 - PBL Semester 5, 2026)
+Proyek ini dikembangkan oleh mahasiswa Program Studi Teknik Informatika, Politeknik Negeri Malang:
+
+| Nama | NIM | Peran |
+| :--- | :--- | :--- |
+| **Moch. Adam Arsyad F.** | 244107020104 | Project Manager |
+| **Bintang Pancahaya P.** | 244107020115 | Mobile Developer |
+| **Rafazl Radana D.** | 244107020082 | ML Engineer |
+| **Muchammad Ibrahim A. A** | 244107020062 | Backend Dev |
+| **Anthea Amodia Syaffah A.**| 244107020024 | UI/UX Designer |
+
+**Dosen Pembimbing:**
+* Titis Octary Satrio, S.ST., M.MT. (Penjaminan Mutu Perangkat Lunak)
+* Muhammad Afif Hendrawan, S.Kom., M.T. (Pembelajaran Mesin)
+* Agung Nugroho Pramudhita, S.T., M.T. (Pemrograman Mobile)
+
+---
+
+##  Fitur Utama
+- **Kuis Kondisi Kulit & Gaya Hidup**: Pengumpulan data awal (alergi, pola makan, kebiasaan) sebelum pemindaian.
+- **Smart Skin Scan**: Pemindaian area kulit (wajah, tangan, punggung, kaki) langsung menggunakan kamera smartphone.
+- **Analisis Machine Learning**: Deteksi kondisi/masalah kulit dengan akurasi tinggi menggunakan model.
+- **Rekomendasi Ingredients**: Saran bahan aktif perawatan kulit yang aman dan sesuai dengan hasil analisis.
+- **Katalog Skincare (Filter Harga)**: Rekomendasi produk riil di pasaran yang bisa disaring berdasarkan *budget* pengguna.
+- **Edukasi & Pola Hidup**: Tips harian dan saran nutrisi untuk perawatan kulit secara holistik.
+
+---
+
+##  Teknologi yang Digunakan
+* **Frontend / Mobile App:** [Flutter](https://flutter.dev/) (Dart)
+* **Machine Learning:** Python, TensorFlow / Keras (Model arsitektur CNN)
+* **Dataset:**
+  * https://drive.google.com/drive/folders/1ApXxdt1RROElUlyw7yfVWyMNm6LQxAMP?usp=sharing
+
+---
+
+## Cara Menjalankan Proyek Secara Lokal
+
+### Prasyarat
+Sebelum memulai, pastikan perangkat Anda telah terinstal perangkat lunak berikut:
+1. [Flutter SDK](https://docs.flutter.dev/get-started/install) (Versi terbaru)
+2. [Android Studio](https://developer.android.com/studio) atau [VS Code](https://code.visualstudio.com/) dengan ekstensi Flutter & Dart.
+3. Emulator Android / iOS, atau perangkat fisik.
+4. Python 3.x (Untuk melatih atau menjalankan *server* model ML, opsional jika API sudah di-*deploy*).
+
+### Instalasi Aplikasi Mobile (Flutter)
+1. **Clone repositori ini**
+   ```bash
+   git clone https://github.com/username-organisasi/skinsight.git
+   cd skinsight/mobile
+   ```
+2. **Unduh dependensi (packages)**
+   ```bash
+   flutter pub get
+   ```
+3. **Jalankan aplikasi**
+   ```bash
+   flutter run
+   ```
+
+### Menjalankan / Melatih Model Machine Learning
+*(Catatan: Instruksi ini berjalan di direktori `/machine_learning`)*
+1. Navigasi ke folder ML: `cd machine_learning`
+2. Buat Virtual Environment (disarankan): `python -m venv venv` dan aktifkan.
+3. Instal dependensi: `pip install -r requirements.txt`
+4. Jalankan skrip *training*: `python train_model.py` atau jalankan API lokal: `python app.py`
+
+---
+
+## Struktur Folder Utama
 ```text
-SkinSight/
-├── mobile/
-│   └── lib/
-│       ├── app/                 # bootstrap, komposisi aplikasi, splash screen
-│       ├── core/                # aset dan konfigurasi lintas fitur
-│       ├── features/            # kode dikelompokkan per fitur
-│       │   ├── auth/
-│       │   ├── scan/
-│       │   ├── education/
-│       │   ├── checkin/
-│       │   ├── history/
-│       │   ├── journeys/
-│       │   ├── progress/
-│       │   ├── notifications/
-│       │   ├── profile/
-│       │   └── ...
-│       └── shared/              # komponen UI reusable antarfitur
-├── backend/app/{api/routes,schemas,services}/
-├── ml/
-├── infrastructure/
-├── tests/
-├── .github/workflows/
-├── RESTRUCTURE_MAP.json
-└── README.md
+skinsight/
+│
+├── mobile/                   # Source code aplikasi Flutter (Frontend)
+│   ├── lib/                  # Kode utama Dart (UI, Logic, API integration)
+│   ├── assets/               # Gambar, ikon, dan font
+│   └── pubspec.yaml          # Konfigurasi dependensi Flutter
+│
+├── machine_learning/         # Script pengolahan data & model ML
+│   ├── datasets/             # Folder penyimpan dataset gambar mentah
+│   ├── notebooks/            # Jupyter Notebooks untuk riset & eksperimen
+│   ├── models/               # File model CNN yang telah dilatih (.h5 / .tflite)
+│   └── api/                  # Script Flask/FastAPI untuk melayani prediksi model
+│
+├── docs/                     # Dokumentasi PBL, Proposal, Laporan Pengujian
+└── README.md                 # Dokumentasi repositori ini
 ```
 
-## Peran tiap bagian
+---
 
-- `mobile/lib/features/<fitur>/presentation`: halaman dan widget khusus fitur.
-- `mobile/lib/features/<fitur>/data`: akses data/repository/service khusus fitur.
-- `mobile/lib/features/<fitur>/models`: model data yang dipakai fitur.
-- `mobile/lib/features/<fitur>/domain`: aturan bisnis yang tidak seharusnya bergantung langsung pada UI.
-- `mobile/lib/shared`: UI reusable yang tidak menjadi milik satu fitur.
-- `mobile/lib/core`: hal lintas fitur seperti theme, konfigurasi, dan aset.
-- `backend/app/api/routes`: HTTP endpoint. `schemas` untuk bentuk request/response. `services` untuk use case dan orkestrasi.
-- `ml`: preprocessing, inferensi, serta konfigurasi model.
-- `tests`: unit test dan test integrasi/kontrak antar komponen.
+## Batasan dan Penafian (Disclaimer)
+Aplikasi **SkinSight** dirancang murni sebagai alat bantu edukasi dan rekomendasi awal. Analisis yang dihasilkan **bukan** merupakan diagnosis medis, resep klinis, atau pengganti dari anjuran dokter spesialis kulit (Dermatolog). Segala bentuk risiko iritasi atau masalah kulit lanjutan akibat penggunaan produk tetap menjadi tanggung jawab pengguna.
 
-## Alur integrasi mobile ↔ backend
+---
 
-Backend tidak di-import langsung oleh Flutter. Mobile mengirim request HTTP ke endpoint backend; backend memvalidasi request, memanggil layanan inferensi di `ml`, lalu mengembalikan response sesuai kontrak API. Sebelum implementasi API client dipasang ke UI, tetapkan kontrak request/response (idealnya OpenAPI) dan base URL per environment. Arsip asal belum memuat endpoint atau kontrak tersebut, jadi API client belum dibuat agar tidak mengarang bentuk response dan tidak menampilkan data demo seolah-olah hasil model asli.
+## Lisensi
+Proyek ini dikembangkan dalam rangka *Project Based Learning (PBL)* Politeknik Negeri Malang Tahun 2026. Semua hak cipta atas laporan dan kode sumber mengikuti kebijakan institusi terkait.
 
-## Clean Code: aturan yang dipakai
+---
 
-Clean Code bukan checklist yang harus dipaksakan secara literal. Target utamanya: developer lain bisa memahami, mengubah, dan menguji kode dengan risiko rendah.
+## Aset UI
 
-1. **Konvensi konsisten** — nama file/class/variabel mengikuti konvensi Dart; format dijalankan lewat `dart format`.
-2. **KISS, cari akar masalah, Boy Scout Rule** — hindari abstraksi yang belum dibutuhkan, perbaiki penyebab bukan gejala, dan jangan menyisakan kode mati.
-3. **Konfigurasi di batas aplikasi** — URL API, kunci, dan environment masuk lewat konfigurasi; rahasia tidak ditanam di source.
-4. **Satu tanggung jawab per modul/fungsi** — UI mengurus presentasi/interaksi, repository mengurus akses data, service/use case mengurus alur bisnis.
-5. **Nama jelas dan bisa dicari** — hindari nama kabur serta angka literal yang tidak menjelaskan maksud.
-6. **Fungsi ringkas dan fokus** — pecah fungsi bila beberapa langkah punya alasan perubahan yang berbeda; jumlah baris bukan tujuan tunggal.
-7. **Hindari flag argument bila membuat perilaku bercabang** — gunakan API atau fungsi berbeda bila dua jalur benar-benar punya makna berbeda.
-8. **Dependency Injection secara proporsional** — injeksikan dependensi yang perlu diganti saat test/environment; jangan membuat container/framework berlebihan.
-9. **Jaga batas dependensi** — UI boleh memanggil controller/use case/repository melalui API yang jelas; fitur tidak saling mengakses detail internal secara sembarangan.
-10. **Komentar untuk alasan, bukan mengulang kode** — dokumentasikan alasan atau konsekuensi yang tak jelas dari implementasi.
-11. **Tes deterministik dan independen** — tes satu perilaku penting per test, cepat, dapat diulang, dan tidak bergantung pada urutan test.
-12. **Pantau code smells** — coupling tinggi, satu perubahan memaksa banyak file berubah, logika duplikat, fungsi terlalu panjang, dan file yang menyimpan terlalu banyak alasan perubahan.
+Aset antarmuka yang tersedia meliputi `skin_girl.png`, `skin_magnifier.png`,
+`skin_analyze_title.png`, `cat_happy.png`, `city_background.png`, `clouds.png`,
+`bubbles.png`, `leaves_flowers.png`, `sparkles.png`, `hero_decor.png`,
+`try_now_sticker.png`, dan `description_sticker.png`.
 
-### Catatan atas aturan yang sering disalahartikan
-
-- **“One assert per test” bukan hukum mutlak.** Satu test boleh punya beberapa assertion jika semuanya memverifikasi satu hasil/perilaku yang sama. Yang penting test punya satu alasan untuk gagal.
-- **“Prefer polymorphism to if/else” bukan berarti semua `if` harus dihapus.** Gunakan polymorphism ketika ada variasi perilaku yang stabil; conditional sederhana justru lebih terbaca.
-- **“No side effects” tidak berarti aplikasi tak boleh mengubah state.** Maksudnya, fungsi sebaiknya tidak menyembunyikan efek samping di balik nama yang tampak seperti perhitungan murni.
-- **“Small functions” bukan batas jumlah baris.** Pecah fungsi berdasarkan tanggung jawab dan tingkat abstraksi, bukan sekadar memotongnya menjadi banyak fungsi kecil.
-- **Value object/polymorphism/DI dipakai saat menambah kejelasan atau testability, bukan demi memenuhi daftar.** Abstraksi yang tidak memberi manfaat adalah needless complexity.
-
-## Yang sudah diubah dalam tahap ini
-
-- Memindahkan 67 file Dart dari `pages/`, `data/`, `models/`, `theme/`, dan `widgets/` menjadi struktur feature-first.
-- Menghitung ulang seluruh import relatif yang menunjuk file Dart di dalam arsip.
-- Memisahkan `main.dart` menjadi entry point, bootstrap, konfigurasi komposisi aplikasi, dan splash screen.
-- Mempertahankan nama halaman dan rute lama agar referensi yang sudah ada tidak berubah karena refactor struktur.
-- Menaruh timeline engine/policy di domain fitur progress; komponen UI lintas fitur di `shared`; theme dan aset di `core`.
-
-## Batasan verifikasi
-
-Zip asal hanya berisi `lib/`; `pubspec.yaml`, asset, konfigurasi platform, dan test tidak tersedia. Karena itu project ini belum dapat diverifikasi dengan `flutter analyze` atau dijalankan sebagai aplikasi utuh hanya dari arsip ini. Sebelum memakai struktur hasil ini, gabungkan `mobile/lib` dengan project Flutter asli beserta `pubspec.yaml`, `assets/`, `android/`, `ios/`, dan konfigurasi lainnya, lalu jalankan format, analyzer, dan test.
-"# SkinSight-App" 
+Halaman Flutter menggunakan kanvas desain 941×1672 dan menskalakan komposisi
+secara proporsional.
