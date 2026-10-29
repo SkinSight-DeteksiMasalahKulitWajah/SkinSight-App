@@ -1,4 +1,4 @@
-# SkinSight 🔍✨
+# SkinSight 
 
 > **Aplikasi Deteksi Kondisi Kulit Tubuh Berbasis Machine Learning**
 
@@ -6,7 +6,7 @@ SkinSight adalah aplikasi mobile cerdas yang membantu pengguna mengidentifikasi 
 
 ---
 
-## 👥 Tim Pengembang (Kelompok 2 - PBL Semester 5, 2026)
+## Tim Pengembang (Kelompok 2 - PBL Semester 5, 2026)
 Proyek ini dikembangkan oleh mahasiswa Program Studi Teknik Informatika, Politeknik Negeri Malang:
 
 | Nama | NIM | Peran |
@@ -24,17 +24,17 @@ Proyek ini dikembangkan oleh mahasiswa Program Studi Teknik Informatika, Politek
 
 ---
 
-## ✨ Fitur Utama
-- **📝 Kuis Kondisi Kulit & Gaya Hidup**: Pengumpulan data awal (alergi, pola makan, kebiasaan) sebelum pemindaian.
-- **📸 Smart Skin Scan**: Pemindaian area kulit (wajah, tangan, punggung, kaki) langsung menggunakan kamera smartphone.
-- **🧠 Analisis Machine Learning**: Deteksi kondisi/masalah kulit dengan akurasi tinggi menggunakan model.
-- **🧪 Rekomendasi Ingredients**: Saran bahan aktif perawatan kulit yang aman dan sesuai dengan hasil analisis.
-- **🛍️ Katalog Skincare (Filter Harga)**: Rekomendasi produk riil di pasaran yang bisa disaring berdasarkan *budget* pengguna.
-- **🥗 Edukasi & Pola Hidup**: Tips harian dan saran nutrisi untuk perawatan kulit secara holistik.
+##  Fitur Utama
+- **Kuis Kondisi Kulit & Gaya Hidup**: Pengumpulan data awal (alergi, pola makan, kebiasaan) sebelum pemindaian.
+- **Smart Skin Scan**: Pemindaian area kulit (wajah, tangan, punggung, kaki) langsung menggunakan kamera smartphone.
+- **Analisis Machine Learning**: Deteksi kondisi/masalah kulit dengan akurasi tinggi menggunakan model.
+- **Rekomendasi Ingredients**: Saran bahan aktif perawatan kulit yang aman dan sesuai dengan hasil analisis.
+- **Katalog Skincare (Filter Harga)**: Rekomendasi produk riil di pasaran yang bisa disaring berdasarkan *budget* pengguna.
+- **Edukasi & Pola Hidup**: Tips harian dan saran nutrisi untuk perawatan kulit secara holistik.
 
 ---
 
-## 🛠️ Teknologi yang Digunakan
+##  Teknologi yang Digunakan
 * **Frontend / Mobile App:** [Flutter](https://flutter.dev/) (Dart)
 * **Machine Learning:** Python, TensorFlow / Keras (Model arsitektur CNN)
 * **Dataset:**
@@ -43,7 +43,7 @@ Proyek ini dikembangkan oleh mahasiswa Program Studi Teknik Informatika, Politek
 
 ---
 
-## 🚀 Cara Menjalankan Proyek Secara Lokal
+## Cara Menjalankan Proyek Secara Lokal
 
 ### Prasyarat
 Sebelum memulai, pastikan perangkat Anda telah terinstal perangkat lunak berikut:
@@ -76,7 +76,7 @@ Sebelum memulai, pastikan perangkat Anda telah terinstal perangkat lunak berikut
 
 ---
 
-## 📁 Struktur Folder Utama
+## Struktur Folder Utama
 ```text
 skinsight/
 │
@@ -97,17 +97,17 @@ skinsight/
 
 ---
 
-## ⚠️ Batasan dan Penafian (Disclaimer)
+## Batasan dan Penafian (Disclaimer)
 Aplikasi **SkinSight** dirancang murni sebagai alat bantu edukasi dan rekomendasi awal. Analisis yang dihasilkan **bukan** merupakan diagnosis medis, resep klinis, atau pengganti dari anjuran dokter spesialis kulit (Dermatolog). Segala bentuk risiko iritasi atau masalah kulit lanjutan akibat penggunaan produk tetap menjadi tanggung jawab pengguna.
 
 ---
 
-## 📄 Lisensi
+## Lisensi
 Proyek ini dikembangkan dalam rangka *Project Based Learning (PBL)* Politeknik Negeri Malang Tahun 2026. Semua hak cipta atas laporan dan kode sumber mengikuti kebijakan institusi terkait.
 
 ---
 
-## 🎨 Aset UI
+## Aset UI
 
 Aset antarmuka yang tersedia meliputi `skin_girl.png`, `skin_magnifier.png`,
 `skin_analyze_title.png`, `cat_happy.png`, `city_background.png`, `clouds.png`,
