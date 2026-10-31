@@ -34,9 +34,10 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://postgres:password@localhost:5432/skinsight"
 
     # Supabase (Auth / Storage)
-    SUPABASE_URL: str = ""
+    SUPABASE_URL: str = "https://pzszjjjyrwdfehfwczyo.supabase.co"
     SUPABASE_ANON_KEY: str = ""
     SUPABASE_SERVICE_ROLE_KEY: str = ""
+    SUPABASE_JWT_SECRET: str = ""
 
     # ML Model Configuration
     ML_MODEL_PATH: str = "models/skin_classifier.tflite"
