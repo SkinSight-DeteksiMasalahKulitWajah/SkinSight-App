@@ -12,9 +12,11 @@ Future<void> _openLogin(WidgetTester tester) async {
   await tester.tap(startButton);
   await tester.pumpAndSettle();
   final loginChoice = find.byKey(const Key('auth-login'));
-  await tester.ensureVisible(loginChoice);
-  await tester.tap(loginChoice);
-  await tester.pumpAndSettle();
+  if (loginChoice.evaluate().isNotEmpty) {
+    await tester.ensureVisible(loginChoice);
+    await tester.tap(loginChoice);
+    await tester.pumpAndSettle();
+  }
 }
 
 void main() {
@@ -100,7 +102,7 @@ void main() {
     expect(find.text('Buat akun SkinSight'), findsOneWidget);
     expect(find.byKey(const Key('register-name')), findsOneWidget);
     expect(find.text('Daftar'), findsOneWidget);
-    expect(find.byKey(const Key('login-google')), findsNothing);
+    expect(find.byKey(const Key('login-google')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

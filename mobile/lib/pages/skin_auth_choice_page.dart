@@ -12,8 +12,12 @@ class SkinAuthChoicePage extends StatelessWidget {
 
   Future<void> _registerWithGoogle(BuildContext context) async {
     try {
-      await context.read<AuthService>().signInWithGoogle();
+      final auth = context.read<AuthService>();
+      await auth.signInWithGoogle();
       if (!context.mounted) return;
+      if (!auth.isAuthenticated) {
+        return; // Login dibatalkan atau belum ada sesi aktif, jangan lanjut.
+      }
       AuthSession.instance.signIn();
       Navigator.of(context)
           .pushNamedAndRemoveUntil('/onboarding', (_) => false);
@@ -206,6 +210,16 @@ class _AuthChoicePanel extends StatelessWidget {
               style: SkinTokens.caption,
             ),
             SizedBox(height: compact ? 16 : 20),
+            FilledButton.icon(
+              key: const Key('auth-email'),
+              onPressed: () => Navigator.of(context).pushNamed('/register'),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(54),
+              ),
+              icon: const Icon(Icons.mail_outline_rounded),
+              label: const Text('Lanjut dengan Email'),
+            ),
+            const SizedBox(height: 10),
             OutlinedButton(
               key: const Key('auth-google'),
               onPressed: onGoogle,
@@ -224,16 +238,6 @@ class _AuthChoicePanel extends StatelessWidget {
                   ],
                 ),
               ),
-            ),
-            const SizedBox(height: 10),
-            FilledButton.icon(
-              key: const Key('auth-email'),
-              onPressed: () => Navigator.of(context).pushNamed('/register'),
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(54),
-              ),
-              icon: const Icon(Icons.mail_outline_rounded),
-              label: const Text('Lanjut dengan Email'),
             ),
             const SizedBox(height: 6),
             Wrap(
