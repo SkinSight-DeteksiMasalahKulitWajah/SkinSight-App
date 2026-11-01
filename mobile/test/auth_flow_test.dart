@@ -39,6 +39,10 @@ void main() {
       find.byKey(const Key('login-email')),
       'pengguna.baru@skinsight.id',
     );
+    await tester.enterText(
+      find.byKey(const Key('login-password')),
+      'skinsight123',
+    );
     await tester.ensureVisible(find.byKey(const Key('login-submit')));
     await tester.tap(find.byKey(const Key('login-submit')));
     await tester.pumpAndSettle();
@@ -79,6 +83,14 @@ void main() {
       await tester.tap(authLogin);
       await tester.pumpAndSettle();
     }
+    await tester.enterText(
+      find.byKey(const Key('login-email')),
+      'alea@skinsight.id',
+    );
+    await tester.enterText(
+      find.byKey(const Key('login-password')),
+      'skinsight123',
+    );
     await tester.ensureVisible(find.byKey(const Key('login-submit')));
     await tester.tap(find.byKey(const Key('login-submit')));
     await tester.pumpAndSettle();
@@ -119,6 +131,10 @@ void main() {
     await tester.enterText(
       find.byKey(const Key('login-email')),
       'compact.user@skinsight.id',
+    );
+    await tester.enterText(
+      find.byKey(const Key('login-password')),
+      'skinsight123',
     );
     final submit = find.byKey(const Key('login-submit'));
     await tester.ensureVisible(submit);

@@ -35,6 +35,10 @@ void validateRegister(
 
 String friendlyAuthError(Object e) {
   final msg = e.toString();
+  if (msg.contains('over_email_send_rate_limit') ||
+      msg.contains('email rate limit exceeded')) {
+    return 'Batas pengiriman email Supabase tercapai (rate limit). Tunggu sebentar atau gunakan login Google / matikan kirim email di Supabase.';
+  }
   if (msg.contains('User already registered') ||
       msg.contains('already been registered')) {
     return 'Email sudah terdaftar. Silakan masuk.';
@@ -191,6 +195,7 @@ class FakeAuthService implements AuthService {
       throw Exception('Email sudah terdaftar. Silakan masuk.');
     }
     _passwords[key] = password;
+    _fakeSignedIn = true;
   }
 
   @override
