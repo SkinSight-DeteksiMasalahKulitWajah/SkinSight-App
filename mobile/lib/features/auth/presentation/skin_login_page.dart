@@ -700,7 +700,7 @@ class _OrDivider extends StatelessWidget {
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 12),
           child: Text(
-            'atau dengan email',
+            'atau',
             style: TextStyle(
               color: SkinTokens.muted,
               fontSize: 12.5,
