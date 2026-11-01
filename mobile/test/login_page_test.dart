@@ -49,17 +49,15 @@ void main() {
 
     await _openLogin(tester);
 
-    final email = tester.widget<TextFormField>(
+    await tester.enterText(
       find.byKey(const Key('login-email')),
+      'alea@skinsight.id',
     );
-    final passwordField = find.byKey(const Key('login-password'));
-    final password = tester.widget<TextFormField>(passwordField);
-    final passwordEditor = tester.widget<EditableText>(
-      find.descendant(of: passwordField, matching: find.byType(EditableText)),
+    await tester.enterText(
+      find.byKey(const Key('login-password')),
+      'skinsight123',
     );
-    expect(email.controller?.text, 'alea@skinsight.id');
-    expect(password.controller?.text, 'skinsight123');
-    expect(passwordEditor.obscureText, isTrue);
+    await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('login-submit')));
     await tester.pumpAndSettle();

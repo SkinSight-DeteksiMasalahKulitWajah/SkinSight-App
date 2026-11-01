@@ -21,8 +21,8 @@ class SkinLoginPage extends StatefulWidget {
 class _SkinLoginPageState extends State<SkinLoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  final _emailController = TextEditingController(text: 'alea@skinsight.id');
-  final _passwordController = TextEditingController(text: 'skinsight123');
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   final _scrollController = ScrollController();
 
   bool _obscurePassword = true;
