@@ -42,7 +42,7 @@ Sebagai Backend Developer, tugas utama Anda adalah:
 ---
 
 ### Fase 2: Database & Skema Data (PostgreSQL / Supabase)
-- [ ] **2.1. Desain Skema Database**
+- [x] **2.1. Desain Skema Database**
   - Tabel `profiles`: Profil pengguna (nama, usia, tipe kulit dominan, riwayat alergi).
   - Tabel `quiz_submissions`: Jawaban kuis awal gaya hidup pengguna.
   - Tabel `scan_records`: Riwayat hasil scan:
@@ -54,8 +54,10 @@ Sebagai Backend Developer, tugas utama Anda adalah:
   - Tabel `skin_journeys` & `journey_checkins`: Catatan perkembangan kulit rutin dan foto berkala pengguna.
   - Tabel `ingredients`: Database bahan aktif (misal: Salicylic Acid, Niacinamide, Ceramide, Centella Asiatica) beserta fungsi dan kecocokan jenis kulit.
   - Tabel `products`: Katalog produk skincare (nama produk, brand, kategori, harga, link pembelian/affiliate, list ingredients yang terkandung).
-- [ ] **2.2. Migrasi Database**
-  - Setup tool migrasi seperti **Alembic** (jika memakai SQLAlchemy) untuk version control skema database.
+- [x] **2.2. Migrasi Database & Anti-Pause Automation**
+  - Setup tool migrasi **Alembic** (Async engine SQLAlchemy + asyncpg) untuk version control skema database.
+  - Menyediakan script manual SQL `schema.sql` untuk dijalankan langsung di Supabase SQL Editor.
+  - Menyiapkan workflow otomatisasi GitHub Action `keep-supabase-alive.yml` untuk mencegah project Supabase dipause.
 
 ---
 
