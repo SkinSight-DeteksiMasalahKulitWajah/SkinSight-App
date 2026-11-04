@@ -18,10 +18,17 @@ void main() {
     await tester.tap(find.byKey(const Key('start-button')));
     await tester.pumpAndSettle();
     final emailChoice = find.byKey(const Key('auth-email'));
-    await tester.ensureVisible(emailChoice);
-    await tester.pumpAndSettle();
-    await tester.tap(emailChoice);
-    await tester.pumpAndSettle();
+    if (emailChoice.evaluate().isNotEmpty) {
+      await tester.ensureVisible(emailChoice);
+      await tester.pumpAndSettle();
+      await tester.tap(emailChoice);
+      await tester.pumpAndSettle();
+    } else {
+      final toggle = find.byKey(const Key('login-register-toggle'));
+      await tester.ensureVisible(toggle);
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+    }
 
     expect(find.text('Buat akun SkinSight'), findsOneWidget);
     await tester.enterText(
@@ -67,8 +74,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('start-button')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('auth-login')));
-    await tester.pumpAndSettle();
+    final authLogin = find.byKey(const Key('auth-login'));
+    if (authLogin.evaluate().isNotEmpty) {
+      await tester.tap(authLogin);
+      await tester.pumpAndSettle();
+    }
     await tester.ensureVisible(find.byKey(const Key('login-submit')));
     await tester.tap(find.byKey(const Key('login-submit')));
     await tester.pumpAndSettle();
@@ -91,10 +101,17 @@ void main() {
     expect(tester.takeException(), isNull);
 
     final compactEmailChoice = find.byKey(const Key('auth-email'));
-    await tester.ensureVisible(compactEmailChoice);
-    await tester.pumpAndSettle();
-    await tester.tap(compactEmailChoice);
-    await tester.pumpAndSettle();
+    if (compactEmailChoice.evaluate().isNotEmpty) {
+      await tester.ensureVisible(compactEmailChoice);
+      await tester.pumpAndSettle();
+      await tester.tap(compactEmailChoice);
+      await tester.pumpAndSettle();
+    } else {
+      final toggle = find.byKey(const Key('login-register-toggle'));
+      await tester.ensureVisible(toggle);
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+    }
     await tester.enterText(
       find.byKey(const Key('register-name')),
       'Pengguna Baru',

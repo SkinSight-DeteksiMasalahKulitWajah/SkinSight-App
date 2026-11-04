@@ -15,7 +15,7 @@ class SkinStartPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    void start() => Navigator.of(context).pushNamed('/auth');
+    void start() => Navigator.of(context).pushNamed('/login');
     void login() => Navigator.of(context).pushNamed('/login');
     final wide = MediaQuery.sizeOf(context).width >= showcaseBreakpoint;
 

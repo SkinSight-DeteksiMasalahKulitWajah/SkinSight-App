@@ -7,7 +7,6 @@ import '../core/theme/skin_theme.dart';
 import '../features/about/presentation/skin_about_page.dart';
 import '../features/auth/data/auth_service.dart';
 import '../features/auth/models/auth_session.dart';
-import '../features/auth/presentation/skin_auth_choice_page.dart';
 import '../features/auth/presentation/skin_login_page.dart';
 import '../features/history/presentation/skin_history_page.dart';
 import '../features/home/presentation/skin_home_page.dart';
@@ -70,7 +69,7 @@ class SkinSightApp extends StatelessWidget {
             '/about': (_) => const SkinAboutPage(),
             '/login': (_) => const SkinLoginPage(),
             '/register': (_) => const SkinLoginPage(initialRegisterMode: true),
-            '/auth': (_) => const SkinAuthChoicePage(),
+            '/auth': (_) => const SkinLoginPage(),
             '/onboarding': (_) => const SkinOnboardingPage(),
             '/help': (_) => const SkinHelpPage(),
             '/history': (_) => const SkinHistoryPage(),

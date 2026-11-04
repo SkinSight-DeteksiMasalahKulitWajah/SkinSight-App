@@ -12,6 +12,7 @@ const authRedirectTo = 'io.supabase.skinsight://login-callback/';
 /// Kontrak auth agar UI bisa diuji tanpa jaringan.
 /// Produksi: [SupabaseAuthService]. Tes/widget: [FakeAuthService].
 abstract class AuthService {
+  bool get isAuthenticated;
   Future<void> signUp(
       {required String name, required String email, required String password});
   Future<void> signIn({required String email, required String password});
@@ -54,6 +55,9 @@ String friendlyAuthError(Object e) {
 /// Implementasi asli Supabase. Trigger SQL `handle_new_user()` membuat `profiles`.
 class SupabaseAuthService implements AuthService {
   SupabaseClient get _client => Supabase.instance.client;
+
+  @override
+  bool get isAuthenticated => _client.auth.currentSession != null;
 
   @override
   Future<void> signUp(
@@ -163,6 +167,10 @@ class SupabaseAuthService implements AuthService {
 /// test tetap jalan; akun baru ikut terdaftar lewat [signUp].
 class FakeAuthService implements AuthService {
   final Map<String, String> _passwords = {'alea@skinsight.id': 'skinsight123'};
+  bool _fakeSignedIn = false;
+
+  @override
+  bool get isAuthenticated => _fakeSignedIn;
 
   @override
   Future<void> signUp(
@@ -182,11 +190,16 @@ class FakeAuthService implements AuthService {
     if (_passwords[email.trim()] != password) {
       throw Exception('Email atau password salah.');
     }
+    _fakeSignedIn = true;
   }
 
   @override
-  Future<void> signInWithGoogle() async {}
+  Future<void> signInWithGoogle() async {
+    _fakeSignedIn = true;
+  }
 
   @override
-  Future<void> signOut() async {}
+  Future<void> signOut() async {
+    _fakeSignedIn = false;
+  }
 }

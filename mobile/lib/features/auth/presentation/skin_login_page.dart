@@ -85,8 +85,12 @@ class _SkinLoginPageState extends State<SkinLoginPage> {
       _googleBusy = true;
     });
     try {
-      await context.read<AuthService>().signInWithGoogle();
+      final auth = context.read<AuthService>();
+      await auth.signInWithGoogle();
       if (!mounted) return;
+      if (!auth.isAuthenticated) {
+        return; // Dibatalkan, jangan pindah halaman.
+      }
       AuthSession.instance.signIn();
       final destination = _destinationAfterAuthentication;
       Navigator.of(context).pushNamedAndRemoveUntil(destination, (_) => false);
@@ -227,15 +231,6 @@ class _SkinLoginPageState extends State<SkinLoginPage> {
             ),
           ),
           SizedBox(height: compact ? 18 : 22),
-          if (!_registerMode) ...[
-            _GoogleButton(
-              onTap: _continueWithGoogle,
-              busy: _googleBusy,
-            ),
-            const SizedBox(height: 16),
-            const _OrDivider(),
-            const SizedBox(height: 16),
-          ],
           if (_registerMode) ...[
             _AuthField(
               fieldKey: const Key('register-name'),
@@ -322,6 +317,13 @@ class _SkinLoginPageState extends State<SkinLoginPage> {
                     : 'Masuk',
             busy: _busy && !_googleBusy,
             onTap: _busy ? () {} : _submit,
+          ),
+          const SizedBox(height: 16),
+          const _OrDivider(),
+          const SizedBox(height: 16),
+          _GoogleButton(
+            onTap: _continueWithGoogle,
+            busy: _googleBusy,
           ),
           const SizedBox(height: 10),
           Wrap(
@@ -698,7 +700,7 @@ class _OrDivider extends StatelessWidget {
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 12),
           child: Text(
-            'atau dengan email',
+            'atau',
             style: TextStyle(
               color: SkinTokens.muted,
               fontSize: 12.5,

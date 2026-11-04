@@ -34,7 +34,17 @@ class _SkinSightBootstrapState extends State<_SkinSightBootstrap> {
         SkinFontSettings.instance.load(),
         AuthSession.instance.load(),
         _initializeSupabase(),
-      ]).timeout(const Duration(seconds: 2));
+      ]);
+
+      // Verifikasi sesi nyata: Jika Supabase aktif tapi tidak ada session aktif,
+      // reset session lokal agar tidak otomatis lompat ke dashboard.
+      try {
+        if (Supabase.instance.client.auth.currentSession == null) {
+          AuthSession.instance.signOut();
+        }
+      } catch (_) {
+        // Mode offline/widget test
+      }
     } catch (error, stackTrace) {
       debugPrint('Startup preferences could not be loaded: $error');
       debugPrintStack(stackTrace: stackTrace);
@@ -58,8 +68,14 @@ class _SkinSightBootstrapState extends State<_SkinSightBootstrap> {
 }
 
 Future<void> _initializeSupabase() async {
-  const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
-  const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+  const supabaseUrl = String.fromEnvironment(
+    'SUPABASE_URL',
+    defaultValue: 'https://pzszjjjyrwdfehfwczyo.supabase.co',
+  );
+  const supabaseAnonKey = String.fromEnvironment(
+    'SUPABASE_ANON_KEY',
+    defaultValue: 'sb_publishable_JHgDQ5XHEsw9dlaXe3fuNw_Zs0gVyq1',
+  );
   if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) return;
 
   await Supabase.initialize(
