@@ -35,6 +35,11 @@ void validateRegister(
 
 String friendlyAuthError(Object e) {
   final msg = e.toString();
+  if (msg.contains('SocketException') ||
+      msg.contains('Failed host lookup') ||
+      msg.contains('No address associated with hostname')) {
+    return 'Gagal terhubung ke internet. Periksa koneksi data/WiFi HP Anda.';
+  }
   if (msg.contains('over_email_send_rate_limit') ||
       msg.contains('email rate limit exceeded')) {
     return 'Batas pengiriman email Supabase tercapai (rate limit). Tunggu sebentar atau gunakan login Google / matikan kirim email di Supabase.';
