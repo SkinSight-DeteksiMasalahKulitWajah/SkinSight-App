@@ -58,6 +58,22 @@ class _SkinLoginPageState extends State<SkinLoginPage> {
           email: _emailController.text,
           password: _passwordController.text,
         );
+        if (!mounted) return;
+        // Jika pendaftaran membutuhkan konfirmasi email (currentSession masih null)
+        if (!auth.isAuthenticated) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Pendaftaran berhasil! Cek email untuk konfirmasi atau silakan langsung masuk.',
+              ),
+              duration: Duration(seconds: 4),
+            ),
+          );
+          setState(() {
+            _registerMode = false; // Pindahkan form ke mode Masuk
+          });
+          return;
+        }
       } else {
         await auth.signIn(
           email: _emailController.text,
