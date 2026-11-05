@@ -45,11 +45,19 @@ String friendlyAuthError(Object e) {
   if (msg.contains('Email not confirmed')) {
     return 'Email belum dikonfirmasi. Cek inbox lalu masuk.';
   }
+  if (msg.contains('signup is disabled') ||
+      msg.contains('Signups not allowed')) {
+    return 'Pendaftaran akun dinonaktifkan di Supabase.';
+  }
+  if (msg.contains('Database error saving new user') ||
+      msg.contains('Database error creating new user')) {
+    return 'Database error: trigger SQL profiles bermasalah.';
+  }
   if (msg.contains('provider is not enabled') ||
       msg.contains('Unsupported provider')) {
     return 'Provider Google belum aktif di dashboard Supabase.';
   }
-  return 'Gagal autentikasi. Coba lagi.';
+  return 'Gagal autentikasi: $msg';
 }
 
 /// Implementasi asli Supabase. Trigger SQL `handle_new_user()` membuat `profiles`.
