@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import'../../scan/models/skin_analysis.dart';
 import'../../journeys/data/skin_journey_store.dart';
