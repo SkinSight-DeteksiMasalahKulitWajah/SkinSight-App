@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
-import'../../../../core/app_assets.dart';
-import'../../../../core/theme/skin_theme.dart';
-import'../../../../shared/widgets/design_system/skin_ui.dart';
+import '../../../../core/app_assets.dart';
+import '../../../../core/theme/skin_theme.dart';
+import '../../../../shared/widgets/design_system/skin_ui.dart';
+import '../../../../shared/widgets/skin_face_detection_overlay.dart';
+import '../../models/skin_analysis.dart';
 
 /// Satu baris metrik analisis: label, nilai tampilan, dan proporsi 0–1.
 typedef SkinMetric = ({String label, String value, double fraction});
@@ -23,7 +25,12 @@ class SkinAnalysisView extends StatelessWidget {
     this.onRecommendation,
     this.photoHeight = 420,
     this.radius = 0,
-    this.showMesh = true,
+    this.showMesh = false,
+    this.faceRect,
+    this.visualBoxes = const [],
+    this.imageWidth,
+    this.imageHeight,
+    this.showDetections = true,
     this.emptyMessage,
   });
 
@@ -39,6 +46,11 @@ class SkinAnalysisView extends StatelessWidget {
   final double photoHeight;
   final double radius;
   final bool showMesh;
+  final Rect? faceRect;
+  final List<SkinVisualBox> visualBoxes;
+  final int? imageWidth;
+  final int? imageHeight;
+  final bool showDetections;
   final String? emptyMessage;
 
   @override
@@ -78,9 +90,14 @@ class SkinAnalysisView extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (showMesh)
-                  // Area rahang → leher.
-                  const SkinScanMesh(region: Rect.fromLTWH(.34, .26, .36, .38)),
+                // Ganti jaring-jaring dengan tanda face detection & lingkaran temuan
+                if (showDetections && (faceRect != null || visualBoxes.isNotEmpty))
+                  SkinFaceDetectionOverlay(
+                    faceRect: faceRect,
+                    visualBoxes: visualBoxes,
+                    imageWidth: imageWidth,
+                    imageHeight: imageHeight,
+                  ),
                 Positioned(
                   top: 16,
                   left: 16,
