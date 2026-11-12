@@ -1,0 +1,187 @@
+{
+  "project": "SkinSight",
+  "created_at_utc": "2026-11-05T16:27:07.906493+00:00",
+  "ultralytics_version": "8.4.202",
+  "host_platform": "Linux-6.18.54.1-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+  "input_size": [
+    640,
+    640
+  ],
+  "precision": "FP32",
+  "format": "LiteRT (.tflite)",
+  "models": [
+    {
+      "key": "acne_pih_darkcircle",
+      "source_checkpoint": "acne_pih_darkcircle_best.pt",
+      "source_sha256": "37c8a295dacf970792e9627b5ac2f11389eefd758db355c9d91212f5d271907a",
+      "task": "detect",
+      "class_names": [
+        "Acne",
+        "PIH",
+        "DarkCircle"
+      ],
+      "expected_class_names": [
+        "Acne",
+        "PIH",
+        "DarkCircle"
+      ],
+      "input_size": [
+        640,
+        640
+      ],
+      "batch": 1,
+      "precision": "FP32",
+      "format": "LiteRT (.tflite)",
+      "output_file": "acne_pih_darkcircle_float32.tflite",
+      "output_size_bytes": 12765872,
+      "output_sha256": "0846f270c00acfadb2c3164a6f1ad4a981ad038793ac854f1c34e61a4eace990",
+      "verification": {
+        "flatbuffer_identifier": "TFL3",
+        "interpreter_check": "passed",
+        "inputs": [
+          {
+            "name": "serving_default_args_0",
+            "shape": [
+              1,
+              3,
+              640,
+              640
+            ],
+            "dtype": "<class 'numpy.float32'>"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "serving_default_output_0_output",
+            "shape": [
+              1,
+              7,
+              8400
+            ],
+            "dtype": "<class 'numpy.float32'>"
+          }
+        ]
+      }
+    },
+    {
+      "key": "redness",
+      "source_checkpoint": "redness_best.pt",
+      "source_sha256": "c2b22bcbb4ff486b1e5d6905ab2fce20bd281ba5f09b16813eaed9fdba17434c",
+      "task": "segment",
+      "class_names": [
+        "redness"
+      ],
+      "expected_class_names": [
+        "redness"
+      ],
+      "input_size": [
+        640,
+        640
+      ],
+      "batch": 1,
+      "precision": "FP32",
+      "format": "LiteRT (.tflite)",
+      "output_file": "redness_float32.tflite",
+      "output_size_bytes": 13797762,
+      "output_sha256": "40a0bf6be2cfb4617dcfa0258abcebb8a0aa546f1c899b52376578d7b321729d",
+      "verification": {
+        "flatbuffer_identifier": "TFL3",
+        "interpreter_check": "passed",
+        "inputs": [
+          {
+            "name": "serving_default_args_0",
+            "shape": [
+              1,
+              3,
+              640,
+              640
+            ],
+            "dtype": "<class 'numpy.float32'>"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "serving_default_output_0_output",
+            "shape": [
+              1,
+              37,
+              8400
+            ],
+            "dtype": "<class 'numpy.float32'>"
+          },
+          {
+            "name": "serving_default_output_1_output",
+            "shape": [
+              1,
+              32,
+              160,
+              160
+            ],
+            "dtype": "<class 'numpy.float32'>"
+          }
+        ]
+      }
+    },
+    {
+      "key": "wrinkle",
+      "source_checkpoint": "wrinkle_yolov8n_seg_best.pt",
+      "source_sha256": "4d6c4cc9350007aac5635d9d159d43a93b64c7d1e798c9a5de6ab8cfb6c2c259",
+      "task": "segment",
+      "class_names": [
+        "wrinkle"
+      ],
+      "expected_class_names": [
+        "wrinkle"
+      ],
+      "input_size": [
+        640,
+        640
+      ],
+      "batch": 1,
+      "precision": "FP32",
+      "format": "LiteRT (.tflite)",
+      "output_file": "wrinkle_float32.tflite",
+      "output_size_bytes": 13797761,
+      "output_sha256": "81e9cc96432fea7a049803b72e69215d94cdb7bcfb2792fc98d6293919402a6d",
+      "verification": {
+        "flatbuffer_identifier": "TFL3",
+        "interpreter_check": "passed",
+        "inputs": [
+          {
+            "name": "serving_default_args_0",
+            "shape": [
+              1,
+              3,
+              640,
+              640
+            ],
+            "dtype": "<class 'numpy.float32'>"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "serving_default_output_0_output",
+            "shape": [
+              1,
+              37,
+              8400
+            ],
+            "dtype": "<class 'numpy.float32'>"
+          },
+          {
+            "name": "serving_default_output_1_output",
+            "shape": [
+              1,
+              32,
+              160,
+              160
+            ],
+            "dtype": "<class 'numpy.float32'>"
+          }
+        ]
+      }
+    }
+  ],
+  "failures": [],
+  "note": "The .tflite files are exported neural-network graphs. Face detection, face-ROI cropping, image preprocessing, and task-specific postprocessing must still be implemented and verified in the Flutter app."
+}

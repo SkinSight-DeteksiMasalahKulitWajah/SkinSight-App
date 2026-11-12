@@ -1,5 +1,7 @@
+import 'dart:ui' show Rect;
 import 'package:flutter/foundation.dart';
 import'../../scan/data/skin_demo_data.dart';
+import'../../scan/models/skin_analysis.dart';
 import'../../progress/domain/skin_timeline_engine.dart';
 
 enum JourneyStatus { active, completed, cancelled }
@@ -396,6 +398,10 @@ class SkinJourneyStore extends ChangeNotifier {
     String pose = 'depan',
     String? modelVersion,
     String quality = 'unchecked',
+    Rect? faceRect,
+    List<SkinVisualBox> visualBoxes = const [],
+    int? imageWidth,
+    int? imageHeight,
   }) {
     final sequence = ++_photoSequence;
     final now = _testingDate == null
@@ -416,6 +422,10 @@ class SkinJourneyStore extends ChangeNotifier {
       pose: pose,
       modelVersion: modelVersion,
       quality: quality,
+      faceRect: faceRect,
+      visualBoxes: List.unmodifiable(visualBoxes),
+      imageWidth: imageWidth,
+      imageHeight: imageHeight,
     );
   }
 
@@ -433,6 +443,10 @@ class SkinJourneyStore extends ChangeNotifier {
     String pose = 'depan',
     String? modelVersion,
     String quality = 'unchecked',
+    Rect? faceRect,
+    List<SkinVisualBox> visualBoxes = const [],
+    int? imageWidth,
+    int? imageHeight,
   }) {
     final photo = _makePhoto(bytes,
         visualFindings: visualFindings,
@@ -445,7 +459,11 @@ class SkinJourneyStore extends ChangeNotifier {
         confidences: confidences,
         pose: pose,
         modelVersion: modelVersion,
-        quality: quality);
+        quality: quality,
+        faceRect: faceRect,
+        visualBoxes: visualBoxes,
+        imageWidth: imageWidth,
+        imageHeight: imageHeight);
     photos.insert(0, photo);
     // Scan baru tidak membuat riwayat fiktif maupun memundurkan baseline.
     baselineDate ??= day(photo.date);
@@ -455,7 +473,35 @@ class SkinJourneyStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Halaman kiri menyimpan sesi ke draft, bukan otomatis mengonfirmasi check-in.
+  /// Stores an already analyzed on-device scan in the check-in draft.
+  /// Unlike stagePhoto, this method never generates demo detection values.
+  void stageAnalysis(SkinAnalysis analysis, {String pose = 'depan'}) {
+    final bytes = analysis.selfieBytes;
+    if (bytes == null || bytes.isEmpty) {
+      throw ArgumentError('Hasil scan tidak memiliki foto sumber.');
+    }
+    pendingPhotos.add(_makePhoto(
+      bytes,
+      pose: pose,
+      visualFindings: analysis.visualFindings,
+      skinType: analysis.skinType,
+      skinTypeConfidence: analysis.skinTypeConfidence,
+      modelConnected: analysis.modelConnected,
+      isDemo: analysis.isDemo,
+      detectionCounts: analysis.detectionCounts,
+      segmentationAreas: analysis.segmentationAreas,
+      confidences: analysis.classConfidences,
+      modelVersion: analysis.modelVersion,
+      quality: analysis.modelConnected ? 'pass' : 'unchecked',
+      faceRect: analysis.faceRect,
+      visualBoxes: analysis.visualBoxes,
+      imageWidth: analysis.imageWidth,
+      imageHeight: analysis.imageHeight,
+    ));
+    notifyListeners();
+  }
+
+  /// Legacy demo-only entry point. Production scan UI calls stageAnalysis.
   void stagePhoto(Uint8List bytes, {String pose = 'depan'}) {
     final analysis = SkinDemoData.forPhoto(bytes,
         sessionIndex: photos.length + pendingPhotos.length);
@@ -557,6 +603,17 @@ class SkinJourneyStore extends ChangeNotifier {
       ..feedbackComment = trimmed
       ..feedbackSubmittedAt = DateTime.now()
       ..updatedAt = DateTime.now();
+    notifyListeners();
+    return true;
+  }
+
+  bool completeSelectedJourneyForDemo() {
+    if (!isSelectedJourneyActive) return false;
+    for (final trackName in timeline.tracks.keys) {
+      closedConditions[trackName] = today;
+    }
+    selectedJourney.status = JourneyStatus.completed;
+    selectedJourney.updatedAt = DateTime.now();
     notifyListeners();
     return true;
   }
@@ -681,21 +738,31 @@ class JourneyPhoto {
   final String pose;
   final String? modelVersion;
   final String quality;
-  const JourneyPhoto(
-      {required this.id,
-      required this.date,
-      required this.bytes,
-      required this.visualFindings,
-      required this.skinType,
-      required this.skinTypeConfidence,
-      required this.modelConnected,
-      required this.isDemo,
-      required this.detectionCounts,
-      required this.segmentationAreas,
-      required this.confidences,
-      required this.pose,
-      required this.modelVersion,
-      required this.quality});
+  final Rect? faceRect;
+  final List<SkinVisualBox> visualBoxes;
+  final int? imageWidth;
+  final int? imageHeight;
+
+  const JourneyPhoto({
+    required this.id,
+    required this.date,
+    required this.bytes,
+    required this.visualFindings,
+    required this.skinType,
+    required this.skinTypeConfidence,
+    required this.modelConnected,
+    required this.isDemo,
+    required this.detectionCounts,
+    required this.segmentationAreas,
+    required this.confidences,
+    required this.pose,
+    required this.modelVersion,
+    required this.quality,
+    this.faceRect,
+    this.visualBoxes = const [],
+    this.imageWidth,
+    this.imageHeight,
+  });
 }
 
 class JourneyCheckin {

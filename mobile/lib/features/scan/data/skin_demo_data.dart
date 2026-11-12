@@ -1,5 +1,7 @@
 import 'dart:typed_data';
-import'../models/skin_analysis.dart';
+import 'dart:ui' show Rect;
+
+import '../models/skin_analysis.dart';
 
 /// Data ilustratif khusus DEMO UI. Tidak membaca konten foto / memanggil ML.
 /// Nilai yang sama ditampilkan pada Hasil dan disimpan ke Skin Journey.
@@ -41,6 +43,36 @@ abstract final class SkinDemoData {
         'Wrinkle': .69,
       },
       modelVersion: 'demo-ui-v1',
+      faceRect: const Rect.fromLTWH(0.24, 0.16, 0.52, 0.58),
+      visualBoxes: const [
+        SkinVisualBox(
+          label: 'Acne',
+          score: 0.88,
+          normalizedRect: Rect.fromLTWH(0.48, 0.32, 0.06, 0.06),
+        ),
+        SkinVisualBox(
+          label: 'Acne',
+          score: 0.82,
+          normalizedRect: Rect.fromLTWH(0.36, 0.44, 0.05, 0.05),
+        ),
+        SkinVisualBox(
+          label: 'PIH',
+          score: 0.83,
+          normalizedRect: Rect.fromLTWH(0.58, 0.46, 0.05, 0.05),
+        ),
+        SkinVisualBox(
+          label: 'Dark Circle',
+          score: 0.77,
+          normalizedRect: Rect.fromLTWH(0.36, 0.38, 0.12, 0.05),
+        ),
+        SkinVisualBox(
+          label: 'Redness',
+          score: 0.81,
+          normalizedRect: Rect.fromLTWH(0.44, 0.46, 0.12, 0.10),
+        ),
+      ],
+      imageWidth: 1200,
+      imageHeight: 1600,
     );
   }
 }

@@ -3,8 +3,8 @@ import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
-import'../data/skin_demo_data.dart';
-import'../../journeys/data/skin_journey_store.dart';
+import '../data/skin_on_device_analyzer.dart';
+import '../../../shared/widgets/skin_analyzing_overlay.dart';
 
 import'../../../core/theme/skin_theme.dart';
 import'../../../shared/widgets/design_system/skin_ui.dart';
@@ -34,6 +34,8 @@ class _SkinScanPageState extends State<SkinScanPage>
   int _cameraIndex = 0;
   bool _isLoading = true;
   bool _isCapturing = false;
+  bool _isAnalyzing = false;
+  String _analysisPhase = 'Mempersiapkan foto...';
   bool _automaticMode = true;
   String? _errorMessage;
 
@@ -173,18 +175,59 @@ class _SkinScanPageState extends State<SkinScanPage>
   }
 
   Future<void> _openResult(Uint8List bytes) async {
-    if (widget.returnPhoto) {
-      Navigator.of(context).pop(bytes);
-      return;
-    }
-    await Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(
-        builder: (_) => SkinResultPage(
+    setState(() {
+      _isAnalyzing = true;
+      _analysisPhase = 'Mendeteksi area wajah...';
+    });
+
+    try {
+      final analysisFuture = SkinOnDeviceAnalyzer.instance.analyze(bytes);
+
+      // Staged transition gives user reassuring real-time feedback
+      await Future<void>.delayed(const Duration(milliseconds: 650));
+      if (mounted && _isAnalyzing) {
+        setState(() => _analysisPhase = 'Menjalankan model On-Device LiteRT...');
+      }
+
+      await Future<void>.delayed(const Duration(milliseconds: 650));
+      if (mounted && _isAnalyzing) {
+        setState(() => _analysisPhase = 'Memindai jerawat, kemerahan & garis halus...');
+      }
+
+      final analysis = await analysisFuture;
+      if (mounted && _isAnalyzing) {
+        setState(() => _analysisPhase = 'Menyusun hasil analisis...');
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+
+      if (!mounted) return;
+
+      if (widget.returnPhoto) {
+        Navigator.of(context).pop(bytes);
+        return;
+      }
+
+      await Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(
+          builder: (_) => SkinResultPage(
             selfieBytes: bytes,
-            analysis: SkinDemoData.forPhoto(bytes,
-                sessionIndex: SkinJourneyStore.instance.photos.length)),
-      ),
-    );
+            analysis: analysis,
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isAnalyzing = false;
+          _isCapturing = false;
+        });
+      }
+    }
   }
 
   @override
@@ -196,121 +239,131 @@ class _SkinScanPageState extends State<SkinScanPage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: !_isAnalyzing,
+      child: Scaffold(
       backgroundColor: _night,
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF2A3330), _night],
-          ),
-        ),
-        child: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: SkinTokens.maxWidth),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final compact =
-                      constraints.maxWidth < 350 || constraints.maxHeight < 640;
-                  return Column(
-                    children: [
-                      const _ScanHeader(),
-                      Expanded(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: compact ? 14 : 18,
-                          ),
-                          child: _CameraFrame(
-                            compact: compact,
-                            controller: _controller,
-                            loading: _isLoading,
-                            errorMessage: _errorMessage,
-                            onRetry: _initializeCamera,
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          28,
-                          compact ? 10 : 14,
-                          28,
-                          compact ? 10 : 14,
-                        ),
-                        child: Text(
-                          'Ambil foto wajah tanpa filter, dengan pencahayaan merata dan posisi serupa tiap check-in. Foto tidak menentukan diagnosis.',
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: .62),
-                            fontSize: 12,
-                            height: 1.4,
-                          ),
-                        ),
-                      ),
-                      Container(
-                        padding: EdgeInsets.fromLTRB(
-                          18,
-                          compact ? 12 : 16,
-                          18,
-                          compact ? 10 : 14,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: .06),
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(30),
-                          ),
-                          border: Border(
-                            top: BorderSide(
-                              color: Colors.white.withValues(alpha: .08),
-                            ),
-                          ),
-                        ),
-                        child: Column(
-                          children: [
-                            _ModeSwitch(
-                              automatic: _automaticMode,
-                              compact: compact,
-                              onChanged: (value) => setState(
-                                () => _automaticMode = value,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          DecoratedBox(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF2A3330), _night],
+              ),
+            ),
+            child: SafeArea(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: SkinTokens.maxWidth),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final compact =
+                          constraints.maxWidth < 350 || constraints.maxHeight < 640;
+                      return Column(
+                        children: [
+                          const _ScanHeader(),
+                          Expanded(
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: compact ? 14 : 18,
+                              ),
+                              child: _CameraFrame(
+                                compact: compact,
+                                controller: _controller,
+                                loading: _isLoading,
+                                errorMessage: _errorMessage,
+                                onRetry: _initializeCamera,
                               ),
                             ),
-                            SizedBox(height: compact ? 12 : 18),
-                            _CaptureControls(
-                              compact: compact,
-                              canSwitch: _cameras.length > 1,
-                              isCapturing: _isCapturing,
-                              onGallery: _pickFromGallery,
-                              onCapture: _takePicture,
-                              onSwitch: _switchCamera,
+                          ),
+                          Padding(
+                            padding: EdgeInsets.fromLTRB(
+                              28,
+                              compact ? 10 : 14,
+                              28,
+                              compact ? 10 : 14,
                             ),
-                            SizedBox(height: compact ? 8 : 12),
-                            Text(
-                              _automaticMode
-                                  ? 'Pastikan wajah terang, lalu tekan tombol saat posisi sudah pas.'
-                                  : 'Mode manual aktif. Tekan tombol untuk mengambil selfie.',
+                            child: Text(
+                              'Ambil foto wajah tanpa filter, dengan pencahayaan merata dan posisi serupa tiap check-in. Foto tidak menentukan diagnosis.',
                               textAlign: TextAlign.center,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: Colors.white.withValues(alpha: .72),
-                                fontSize: compact ? 12 : 13,
-                                height: 1.35,
+                                color: Colors.white.withValues(alpha: .62),
+                                fontSize: 12,
+                                height: 1.4,
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  );
-                },
+                          ),
+                          Container(
+                            padding: EdgeInsets.fromLTRB(
+                              18,
+                              compact ? 12 : 16,
+                              18,
+                              compact ? 10 : 14,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: .06),
+                              borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(30),
+                              ),
+                              border: Border(
+                                top: BorderSide(
+                                  color: Colors.white.withValues(alpha: .08),
+                                ),
+                              ),
+                            ),
+                            child: Column(
+                              children: [
+                                _ModeSwitch(
+                                  automatic: _automaticMode,
+                                  compact: compact,
+                                  onChanged: (value) => setState(
+                                    () => _automaticMode = value,
+                                  ),
+                                ),
+                                SizedBox(height: compact ? 12 : 18),
+                                _CaptureControls(
+                                  compact: compact,
+                                  canSwitch: _cameras.length > 1,
+                                  isCapturing: _isCapturing || _isAnalyzing,
+                                  onGallery: _pickFromGallery,
+                                  onCapture: _takePicture,
+                                  onSwitch: _switchCamera,
+                                ),
+                                SizedBox(height: compact ? 8 : 12),
+                                Text(
+                                  _automaticMode
+                                      ? 'Pastikan wajah terang, lalu tekan tombol saat posisi sudah pas.'
+                                      : 'Mode manual aktif. Tekan tombol untuk mengambil selfie.',
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: .72),
+                                    fontSize: compact ? 12 : 13,
+                                    height: 1.35,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
               ),
             ),
           ),
-        ),
+          if (_isAnalyzing)
+            SkinAnalyzingOverlay(phase: _analysisPhase),
+        ],
       ),
+    ),
     );
   }
 }
