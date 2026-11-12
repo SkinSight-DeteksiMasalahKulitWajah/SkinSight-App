@@ -37,7 +37,12 @@ String friendlyAuthError(Object e) {
   final msg = e.toString();
   if (msg.contains('SocketException') ||
       msg.contains('Failed host lookup') ||
-      msg.contains('No address associated with hostname')) {
+      msg.contains('No address associated with hostname') ||
+      msg.contains('Network is unreachable') ||
+      msg.contains('Connection refused') ||
+      msg.contains('Connection reset') ||
+      msg.contains('ClientException') ||
+      msg.contains('HttpException')) {
     return 'Gagal terhubung ke internet. Periksa koneksi data/WiFi HP Anda.';
   }
   if (msg.contains('over_email_send_rate_limit') ||
@@ -183,7 +188,10 @@ class SupabaseAuthService implements AuthService {
 /// Akun dummy `alea@skinsight.id` / `skinsight123` bawaan agar alur widget
 /// test tetap jalan; akun baru ikut terdaftar lewat [signUp].
 class FakeAuthService implements AuthService {
-  final Map<String, String> _passwords = {'alea@skinsight.id': 'skinsight123'};
+  final Map<String, String> _passwords = {
+    'alea@skinsight.id': 'skinsight123',
+    'admin@skinsight.id': 'skinsight123',
+  };
   bool _fakeSignedIn = false;
 
   @override

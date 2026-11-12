@@ -22,7 +22,7 @@ class VerticalDisplayWord extends StatelessWidget {
       fontSize: fontSize,
       // Tinggi baris rapat: "Natural" tidak punya descender, jadi kotak teks
       // dipangkas agar huruf mengisi lebar kolom kaca sebesar mungkin.
-      height: .86,
+      height: 1.0,
       fontWeight: FontWeight.w300,
       letterSpacing: fontSize * .025,
       color: AppColors.white.withValues(alpha: opacity),

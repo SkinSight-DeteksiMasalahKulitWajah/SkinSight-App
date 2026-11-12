@@ -2,7 +2,7 @@
 /// localization (ARB) nanti. Headline & tag berbahasa Inggris sesuai brand,
 /// teks pendukung berbahasa Indonesia.
 abstract final class OnboardingStrings {
-  static const verticalWord = 'Natural';
+  static const verticalWord = 'SkinSight';
   static const tag = 'Glow On the Go';
   static const headlineLead = 'Start your';
   static const headlineAccent = 'skin journey';
@@ -13,5 +13,5 @@ abstract final class OnboardingStrings {
   static const haveAccount = 'Sudah punya akun?';
   static const login = 'Masuk';
   static const brand = 'SkinSight';
-  static const portraitLabel = 'Potret model dengan kulit bercahaya alami';
+  static const portraitLabel = 'Maskot SkinSight dengan kaca pembesar';
 }
