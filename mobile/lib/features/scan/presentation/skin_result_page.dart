@@ -1,20 +1,19 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import '../data/skin_demo_data.dart';
-import '../../education/data/skin_scan_education.dart';
-import '../../education/presentation/education_result_screen.dart';
-import '../../history/data/skin_history_repository.dart';
-import '../../journeys/data/skin_journey_store.dart';
-import '../models/skin_analysis.dart';
-import '../../../core/theme/skin_theme.dart';
-import './widgets/skin_analysis_view.dart';
-import '../../../shared/widgets/skin_page_background.dart';
-import '../../../shared/widgets/design_system/skin_ui.dart';
-import '../../progress/presentation/skin_progress_page.dart';
-import './skin_scan_page.dart';
+import'../../education/data/skin_scan_education.dart';
+import'../../education/presentation/education_result_screen.dart';
+import'../../history/data/skin_history_repository.dart';
+import'../../journeys/data/skin_journey_store.dart';
+import'../models/skin_analysis.dart';
+import'../../../core/theme/skin_theme.dart';
+import'./widgets/skin_analysis_view.dart';
+import'../../../shared/widgets/skin_page_background.dart';
+import'../../../shared/widgets/design_system/skin_ui.dart';
+import'../../progress/presentation/skin_progress_page.dart';
+import'./skin_scan_page.dart';
 
-/// Hasil satu foto. Dalam prototipe hasil berasal dari fixture demo yang
-/// SAMA dengan catatan Skin Journey setelah pengguna menekan Simpan.
+/// Hasil satu foto. Temuan visual berasal dari inference on-device;
+/// jenis kulit masih memakai nilai dummy sampai classifier tersedia.
 class SkinResultPage extends StatefulWidget {
   final Uint8List? selfieBytes;
   final SkinAnalysis? analysis;
@@ -42,20 +41,22 @@ class _SkinResultPageState extends State<SkinResultPage> {
   bool _saved = false;
   final _findingsKey = GlobalKey();
 
-  final Map<String, String> _typeLabels = {
-    'acne': 'Jerawat',
-    'oily': 'Berminyak',
-    'dry': 'Kering',
-    'normal': 'Normal',
-  };
+  String _formatSkinType(String type) =>
+      skinTypeLabels[type] ??
+      switch (type.toLowerCase()) {
+        'dry' => 'Kering',
+        'oily' => 'Berminyak',
+        'normal' => 'Normal',
+        'combination' => 'Kombinasi',
+        _ => type,
+      };
 
   @override
   void initState() {
     super.initState();
-    _data = widget.analysis ??
-        (widget.selfieBytes == null
-            ? null
-            : SkinDemoData.forPhoto(widget.selfieBytes!));
+    // Scan production must pass a real on-device analysis. Do not fabricate
+    // visual findings when this page is opened without an analysis payload.
+    _data = widget.analysis;
   }
 
   String _pct(double v) => '${(v * 100).toStringAsFixed(0)}%';
@@ -92,7 +93,11 @@ class _SkinResultPageState extends State<SkinResultPage> {
       classConfidences: a.classConfidences,
       skinTypeConfidence: a.skinTypeConfidence,
       modelVersion: a.modelVersion,
-      quality: a.isDemo ? 'pass' : 'unchecked',
+      quality: a.modelConnected ? 'pass' : 'unchecked',
+      faceRect: a.faceRect,
+      visualBoxes: a.visualBoxes,
+      imageWidth: a.imageWidth,
+      imageHeight: a.imageHeight,
     );
     if (!mounted) return;
     setState(() {
@@ -135,13 +140,14 @@ class _SkinResultPageState extends State<SkinResultPage> {
   Widget build(BuildContext context) {
     final a = _data;
     final photo = a?.selfieBytes ?? widget.selfieBytes;
-    final hasData = a != null && (a.modelConnected || a.isDemo);
-    final found = a == null || !hasData ? const <String>[] : a.visualFindings;
-    final skinTypeConfidence = a?.skinTypeConfidence;
+    final analysis = a != null && (a.modelConnected || a.isDemo) ? a : null;
+    final hasData = analysis != null;
+    final found = analysis?.visualFindings ?? const <String>[];
+    final skinTypeConfidence = analysis?.skinTypeConfidence;
     final other = SkinJourneyStore.visualClasses
         .where((c) => !found.contains(c))
         .toList();
-    final type = hasData ? a.skinType : 'Belum diketahui';
+    final type = analysis?.skinType ?? 'Belum diketahui';
     final typeDesc = switch (type) {
       'Dry' =>
         'Cenderung membutuhkan perhatian pada kelembapan dan toleransi bahan aktif.',
@@ -175,18 +181,24 @@ class _SkinResultPageState extends State<SkinResultPage> {
                           photo: photo == null ? null : MemoryImage(photo),
                           photoHeight: 400,
                           badge: hasData
-                              ? 'Jenis kulit: ${skinTypeLabels[type] ?? type}'
+                              ? 'Jenis kulit: ${_formatSkinType(type)}'
                               : 'Belum ada hasil',
+                          faceRect: analysis?.faceRect,
+                          visualBoxes: analysis?.visualBoxes ?? const [],
+                          imageWidth: analysis?.imageWidth,
+                          imageHeight: analysis?.imageHeight,
                           backKey: const Key('result-back'),
                           onBack: () => Navigator.of(context).maybePop(),
-                          trailing: a != null && a.isDemo
+                          trailing: analysis?.isDemo == true
                               ? const SkinPill(
                                   label: 'Demo',
                                   tone: SkinTone.warning,
                                   icon: Icons.science_outlined,
                                 )
                               : null,
-                          metrics: hasData ? _metrics(found, a) : const [],
+                          metrics: analysis != null
+                              ? _metrics(found, analysis)
+                              : const [],
                           emptyMessage: hasData
                               ? 'Tidak ada temuan visual pada sesi ini.'
                               : 'Hasil analisis belum tersedia.',
@@ -195,8 +207,9 @@ class _SkinResultPageState extends State<SkinResultPage> {
                               : 'Lihat rincian temuan',
                           // Edukasi dibuka sebagai halaman terpisah, bukan
                           // digulir pada halaman hasil yang sama.
-                          onRecommendation: educated.isNotEmpty && a != null
-                              ? () => _openEducation(a)
+                          onRecommendation: educated.isNotEmpty &&
+                                  analysis != null
+                              ? () => _openEducation(analysis)
                               : () => _scrollTo(_findingsKey),
                         ),
                       ),
@@ -228,7 +241,7 @@ class _SkinResultPageState extends State<SkinResultPage> {
                             SkinReveal(
                               delay: const Duration(milliseconds: 80),
                               child: _SkinTypeCard(
-                                type: _typeLabels[type] ?? type,
+                                type: _formatSkinType(type),
                                 description: typeDesc,
                                 confidence: hasData ? skinTypeConfidence : null,
                                 pct: _pct,
@@ -257,7 +270,7 @@ class _SkinResultPageState extends State<SkinResultPage> {
                                           color: Colors.white
                                               .withValues(alpha: .9),
                                         ),
-                                      _findingRow(c, a),
+                                      _findingRow(c, analysis),
                                     ],
                                   ]),
                                 ),
@@ -347,9 +360,9 @@ class _SkinResultPageState extends State<SkinResultPage> {
                                       width: double.infinity,
                                       child: FilledButton.icon(
                                         key: const Key('open-education-result'),
-                                        onPressed: a == null
+                                        onPressed: analysis == null
                                             ? null
-                                            : () => _openEducation(a),
+                                            : () => _openEducation(analysis),
                                         icon: const Icon(
                                             Icons.auto_stories_outlined),
                                         label: const Text(
@@ -455,19 +468,6 @@ class _SkinResultPageState extends State<SkinResultPage> {
     );
   }
 
-  IconData _findingIcon(String type) {
-    switch (type.toLowerCase()) {
-      case 'acne':
-        return Icons.warning_amber_rounded;
-      case 'oily':
-        return Icons.water_drop;
-      case 'dry':
-        return Icons.dry; // Sesuaikan jika ada icon lain
-      default:
-        return Icons.check_circle_outline;
-    }
-  }
-
   // Satu panel ringkas; setiap kelas satu BARIS, bukan kartu tinggi 156 px.
   Widget _findingRow(String name, SkinAnalysis a) {
     final detection = SkinJourneyStore.detectionClasses.contains(name);
@@ -487,7 +487,7 @@ class _SkinResultPageState extends State<SkinResultPage> {
                 color: color.withValues(alpha: .12),
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white)),
-            child: Icon(_findingIcon(name), color: color, size: 20)),
+            child: Icon(findingIcon(name), color: color, size: 20)),
         const SizedBox(width: 12),
         Expanded(
             child: Column(
@@ -595,94 +595,6 @@ class _SkinTypeCard extends StatelessWidget {
           ]),
           const SizedBox(height: 12),
           Text(description, style: SkinTokens.caption),
-        ],
-      ),
-    );
-  }
-}
-
-class _EducationCard extends StatelessWidget {
-  const _EducationCard({
-    required this.name,
-    required this.color,
-    required this.icon,
-    required this.body,
-    required this.note,
-  });
-
-  final String name;
-  final Color color;
-  final IconData icon;
-  final String body;
-  final String note;
-
-  @override
-  Widget build(BuildContext context) {
-    return SkinCard(
-      padding: const EdgeInsets.fromLTRB(16, 16, 18, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: .14),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, size: 16, color: color),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                name,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: SkinTokens.ink,
-                  fontSize: 15,
-                ),
-              ),
-            ),
-          ]),
-          const SizedBox(height: 10),
-          Text(
-            body,
-            style: const TextStyle(
-              color: SkinTokens.ink,
-              fontSize: 13.5,
-              height: 1.55,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: .7),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Padding(
-                  padding: EdgeInsets.only(top: 1),
-                  child: Icon(Icons.schedule_rounded,
-                      size: 14, color: SkinTokens.muted),
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    note,
-                    style: const TextStyle(
-                      color: SkinTokens.muted,
-                      fontSize: 12,
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );
