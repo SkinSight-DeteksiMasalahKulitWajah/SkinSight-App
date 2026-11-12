@@ -233,7 +233,9 @@ class SkinTimelineEngine {
     if (!_comparable(previous, last) ||
         SkinJourneyStore.sameDay(previous.date, last.date) ||
         _value(previous, name) != 0 ||
-        _value(last, name) != 0) return false;
+        _value(last, name) != 0) {
+      return false;
+    }
     final reports = store.checkins.where((c) =>
         !SkinJourneyStore.day(c.date).isAfter(cutoff) &&
         !c.date.isBefore(last.date) &&
@@ -277,16 +279,20 @@ class SkinTimelineEngine {
     }
     final date = onWeek(week);
     if (relative <= 1) {
-      if (store.answers['M03'] == 'Sedang-berat')
+      if (store.answers['M03'] == 'Sedang-berat') {
         details.add(
             'Keluhan iritasi sedang–berat perlu ditinjau tenaga kesehatan.');
-      if (store.answers['M06'] == 'Ya')
+      }
+      if (store.answers['M06'] == 'Ya') {
         details.add(
             'Sedang dalam perawatan dokter; jangan mengubah terapi sendiri.');
-      if (store.answers['M01'] == 'Tidak' && name == 'Acne')
+      }
+      if (store.answers['M01'] == 'Tidak' && name == 'Acne') {
         details.add('Belum ada perawatan yang dilaporkan.');
-      if (store.answers['M04'] == 'Ya')
+      }
+      if (store.answers['M04'] == 'Ya') {
         details.add('Perhatikan riwayat reaksi terhadap produk.');
+      }
       if (store.photos.isNotEmpty) {
         final type = store.photos.last.skinType;
         final message = switch (type) {
@@ -305,41 +311,52 @@ class SkinTimelineEngine {
     final past = _latestReport(name, date.subtract(const Duration(days: 1)));
     if (past != null) {
       final status = past.perClass[name];
-      if (status == 'Memburuk')
+      if (status == 'Memburuk') {
         details.add(
             'Pada laporan sebelumnya kondisi dirasakan memburuk. Pantau keluhan dan pemicunya.');
-      if (status == 'Tidak yakin')
+      }
+      if (status == 'Tidak yakin') {
         details.add('Perubahan sebelumnya belum dapat dipastikan.');
-      if (past.irritation == 'Sedang-berat')
+      }
+      if (past.irritation == 'Sedang-berat') {
         details.add(
             'Iritasi sedang–berat pernah dilaporkan; utamakan keselamatan.');
-      if (past.treatment == 'Berubah')
+      }
+      if (past.treatment == 'Berubah') {
         details.add(
             'Perawatan berubah. Jadwal evaluasi lama tidak otomatis berlaku.');
+      }
       final answers = past.followup[name] ?? const <String, String>{};
-      if (name == 'Acne' && answers['pain_scars'] == 'ya')
+      if (name == 'Acne' && answers['pain_scars'] == 'ya') {
         details.add(
             'Keluhan jerawat dalam/nyeri atau bekas parut perlu evaluasi profesional.');
+      }
       if (name == 'PIH' &&
-          (answers['uv'] == 'tidak' || answers['uv'] == 'kadang'))
+          (answers['uv'] == 'tidak' || answers['uv'] == 'kadang')) {
         details.add('Tinjau lagi kebiasaan perlindungan UV yang dilaporkan.');
-      if (name == 'Redness' && answers['burning'] == 'ya')
+      }
+      if (name == 'Redness' && answers['burning'] == 'ya') {
         details.add('Tanyakan apakah perih atau panas masih berlangsung.');
-      if (name == 'Dark Circle' && answers['lighting'] == 'tidak')
+      }
+      if (name == 'Dark Circle' && answers['lighting'] == 'tidak') {
         details.add(
             'Foto sebelumnya tidak sebanding; jangan menyimpulkan tren dari jumlah objek.');
-      if (name == 'Wrinkle' && answers['expression'] == 'tidak')
+      }
+      if (name == 'Wrinkle' && answers['expression'] == 'tidak') {
         details.add(
             'Ekspresi foto sebelumnya berbeda; perbandingan perlu hati-hati.');
+      }
     }
     if ((name == 'PIH' || name == 'Wrinkle')) {
       final uv = _latestUv(name, date);
-      if (uv == 'Tidak' || uv == 'Kadang')
+      if (uv == 'Tidak' || uv == 'Kadang') {
         details.add(
             'Perlindungan UV dilaporkan belum rutin; tinjau penggunaan sunscreen.');
+      }
       if (uv == 'Rutin' &&
-          (store.answers['M05'] == 'Tidak' || store.answers['M05'] == 'Kadang'))
+          (store.answers['M05'] == 'Tidak' || store.answers['M05'] == 'Kadang')) {
         details.add('Penggunaan sunscreen kini dilaporkan rutin.');
+      }
     }
     final start = DateTime.tryParse(store.answers['regimen_start'] ?? '');
     final regimenClass = store.answers['regimen_class'];
@@ -351,38 +368,48 @@ class SkinTimelineEngine {
             (past.treatment != 'Berubah' && past.treatment != 'Tidak'));
     if (applicable && !date.isBefore(start)) {
       final treatmentWeek = date.difference(start).inDays ~/ 7;
-      if (name == 'Acne' && [6, 7, 8].contains(treatmentWeek))
+      if (name == 'Acne' && [6, 7, 8].contains(treatmentWeek)) {
         details.add(
             'Sebagian terapi Acne mulai menunjukkan manfaat pada 6–8 minggu sejak dimulai (NICE).');
-      if (name == 'Acne' && treatmentWeek == 12)
+      }
+      if (name == 'Acne' && treatmentWeek == 12) {
         details.add(
             'Pedoman NICE membahas evaluasi terapi sekitar minggu ke-12 sejak dimulai.');
-      if (name == 'PIH' && [4, 8, 12].contains(treatmentWeek))
+      }
+      if (name == 'PIH' && [4, 8, 12].contains(treatmentWeek)) {
         details.add(
             'Penelitian PIH tertentu melakukan evaluasi pada minggu 4, 8, dan 12 sejak terapi.');
-      if (name == 'Wrinkle' && [12, 16, 24].contains(treatmentWeek))
+      }
+      if (name == 'Wrinkle' && [12, 16, 24].contains(treatmentWeek)) {
         details.add(
             'Sejumlah penelitian photoaging menilai hasil setelah beberapa bulan terapi.');
+      }
     }
     final current = _reportAtWeek(name, week);
     if (current != null) {
       details.add('Menurut pengguna: ${current.perClass[name]}.');
       final conflict = _conflict(name, current);
-      if (conflict)
+      if (conflict) {
         details.add(
             'Laporan pengguna dan temuan foto berbeda arah. Keduanya perlu dibaca terpisah.');
+      }
       final f = current.followup[name] ?? const <String, String>{};
-      if (name == 'Acne' && f['new_lesions'] == 'ya')
+      if (name == 'Acne' && f['new_lesions'] == 'ya') {
         details.add('Pengguna melaporkan jerawat baru.');
-      if (name == 'Acne' && f['pain_scars'] == 'ya')
+      }
+      if (name == 'Acne' && f['pain_scars'] == 'ya') {
         details.add(
             'Ada keluhan jerawat nyeri/dalam atau bekas parut; pertimbangkan pemeriksaan profesional.');
-      if (name == 'PIH' && f['new_spots'] == 'ya')
+      }
+      if (name == 'PIH' && f['new_spots'] == 'ya') {
         details.add('Pengguna melaporkan noda baru.');
-      if (name == 'Redness' && f['burning'] == 'ya')
+      }
+      if (name == 'Redness' && f['burning'] == 'ya') {
         details.add('Pengguna melaporkan perih atau panas.');
-      if (name == 'Redness' && f['new_product_reaction'] == 'ya')
+      }
+      if (name == 'Redness' && f['new_product_reaction'] == 'ya') {
         details.add('Ada reaksi terhadap produk baru yang dilaporkan.');
+      }
     }
     final notices = t.notices[week];
     if (notices != null) details.addAll(notices);
@@ -428,7 +455,9 @@ class SkinTimelineEngine {
     for (final c in store.checkins.reversed) {
       if (SkinJourneyStore.sameDay(c.dueDate, onWeek(week)) &&
           !SkinJourneyStore.day(c.date).isAfter(now) &&
-          c.perClass.containsKey(name)) return c;
+          c.perClass.containsKey(name)) {
+        return c;
+      }
     }
     return null;
   }
@@ -462,8 +491,9 @@ class SkinTimelineEngine {
       ..sort((a, b) => a.date.compareTo(b.date));
     if (relevant.length < 2) return false;
     final a = relevant[relevant.length - 2], b = relevant.last;
-    if (!_comparable(a, b) || !SkinJourneyStore.sameDay(b.date, c.date))
+    if (!_comparable(a, b) || !SkinJourneyStore.sameDay(b.date, c.date)) {
       return false;
+    }
     final diff = _value(b, name)! - _value(a, name)!;
     final status = c.perClass[name];
     return (status == 'Membaik' && diff > 0) ||
