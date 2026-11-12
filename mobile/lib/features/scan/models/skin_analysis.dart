@@ -1,4 +1,44 @@
 import 'dart:typed_data';
+import 'dart:ui' show Rect;
+
+/// Representasi satu kotak atau lingkaran deteksi visual pada wajah.
+/// [normalizedRect] bernilai 0..1 terhadap lebar dan tinggi foto asli.
+class SkinVisualBox {
+  final String label;
+  final double score;
+  final Rect normalizedRect;
+
+  const SkinVisualBox({
+    required this.label,
+    required this.score,
+    required this.normalizedRect,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'label': label,
+        'score': score,
+        'rect': [
+          normalizedRect.left,
+          normalizedRect.top,
+          normalizedRect.right,
+          normalizedRect.bottom,
+        ],
+      };
+
+  factory SkinVisualBox.fromJson(Map<String, dynamic> json) {
+    final r = (json['rect'] as List).cast<num>();
+    return SkinVisualBox(
+      label: json['label'] as String,
+      score: (json['score'] as num).toDouble(),
+      normalizedRect: Rect.fromLTRB(
+        r[0].toDouble(),
+        r[1].toDouble(),
+        r[2].toDouble(),
+        r[3].toDouble(),
+      ),
+    );
+  }
+}
 
 class SkinAnalysis {
   final String id;
@@ -24,6 +64,16 @@ class SkinAnalysis {
   final double? skinTypeConfidence;
   final String? modelVersion;
 
+  /// Koordinat area wajah terdeteksi (Face ROI) ternormalisasi (0..1).
+  final Rect? faceRect;
+
+  /// Lokasi deteksi individual (lingkaran / box jerawat, flek, kerutan, dll.) (0..1).
+  final List<SkinVisualBox> visualBoxes;
+
+  /// Dimensi asli foto untuk scaling tepat pada layar.
+  final int? imageWidth;
+  final int? imageHeight;
+
   const SkinAnalysis({
     required this.id,
     required this.analyzedAt,
@@ -43,9 +93,19 @@ class SkinAnalysis {
     this.classConfidences = const {},
     this.skinTypeConfidence,
     this.modelVersion,
+    this.faceRect,
+    this.visualBoxes = const [],
+    this.imageWidth,
+    this.imageHeight,
   });
 
-  SkinAnalysis copyWith({Uint8List? selfieBytes}) {
+  SkinAnalysis copyWith({
+    Uint8List? selfieBytes,
+    Rect? faceRect,
+    List<SkinVisualBox>? visualBoxes,
+    int? imageWidth,
+    int? imageHeight,
+  }) {
     return SkinAnalysis(
       id: id,
       analyzedAt: analyzedAt,
@@ -65,6 +125,10 @@ class SkinAnalysis {
       classConfidences: classConfidences,
       skinTypeConfidence: skinTypeConfidence,
       modelVersion: modelVersion,
+      faceRect: faceRect ?? this.faceRect,
+      visualBoxes: visualBoxes ?? this.visualBoxes,
+      imageWidth: imageWidth ?? this.imageWidth,
+      imageHeight: imageHeight ?? this.imageHeight,
     );
   }
 }
