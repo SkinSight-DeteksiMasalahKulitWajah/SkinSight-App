@@ -166,7 +166,7 @@ class _Scene extends StatelessWidget {
             semanticLabel: semantic ? OnboardingStrings.portraitLabel : null,
             excludeFromSemantics: !semantic,
             gaplessPlayback: true,
-            errorBuilder: assetErrorBuilder,
+            errorBuilder: (_, __, ___) => const SizedBox.shrink(),
           ),
           // Aloe 3D: di atas latar foto, di bawah potongan subjek.
           Positioned(
@@ -186,6 +186,20 @@ class _Scene extends StatelessWidget {
                 excludeFromSemantics: true,
                 errorBuilder: (_, __, ___) => const SizedBox.shrink(),
               ),
+            ),
+          ),
+          Positioned(
+            right: w * .02,
+            top: h * .10,
+            width: (w * .54).clamp(180.0, 380.0),
+            height: (w * .54).clamp(180.0, 380.0),
+            child: Image.asset(
+              AppAssets.avatar3d,
+              fit: BoxFit.contain,
+              excludeFromSemantics: !semantic,
+              semanticLabel: semantic ? OnboardingStrings.portraitLabel : null,
+              filterQuality: FilterQuality.high,
+              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
             ),
           ),
           // Potongan subjek (latar transparan) di atas aloe, sehingga daun

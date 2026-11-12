@@ -431,7 +431,7 @@ class _LoginVisualHero extends StatelessWidget {
               child: const SkinPortrait(
                 asset: AppAssets.scanPortrait,
                 alignment: Alignment(0, -.3),
-                semanticLabel: 'Potret model dengan kulit bercahaya',
+                semanticLabel: 'Maskot SkinSight dengan kaca pembesar',
               ),
             ),
           ),

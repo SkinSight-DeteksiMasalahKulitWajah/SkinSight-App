@@ -11,14 +11,14 @@ abstract final class AppAssets {
   static const _3d = 'assets/3d';
 
   // ── Foto ───────────────────────────────────────────────────────────────
-  /// Potret layar pembuka (1200×2400, subjek di kanan, latar putih lembut).
+  /// Maskot avatar layar pembuka (1200×2400, maskot di kanan, latar mist lembut).
   static const heroPortrait = '$_photos/hero_portrait.jpg';
 
   /// Potongan subjek dari [heroPortrait] (ukuran & posisi identik, latar
-  /// transparan) — dilapis di atas aloe agar daun berada di belakang wajah.
+  /// transparan) — dilapis di atas aloe agar daun berada di belakang maskot.
   static const heroSubject = '$_photos/hero_subject.webp';
 
-  /// Potret wajah 3:4 untuk ilustrasi pemindaian (Home & etalase analisis).
+  /// Maskot avatar 3:4 untuk ilustrasi pemindaian (Login, Home & etalase analisis).
   static const scanPortrait = '$_photos/scan_portrait.jpg';
 
   // ── Ilustrasi 3D (render Blender, latar transparan, ±768 px) ──────────
@@ -37,7 +37,7 @@ abstract final class AppAssets {
   /// Kalender dengan lencana centang.
   static const checkin3d = '$_3d/checkin.png';
 
-  /// Avatar pengguna default (kepala + bahu, sage).
+  /// Avatar pengguna default (maskot SkinSight winking dengan kaca pembesar).
   static const avatar3d = '$_3d/avatar.png';
 
   /// Bintang-bintang perayaan (pencapaian, akhir periode).

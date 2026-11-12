@@ -79,6 +79,7 @@ class _OnboardingHeroState extends State<OnboardingHero>
             cacheHeight: cacheHeight,
           ),
           const AssetImage(AppAssets.aloe3d),
+          const AssetImage(AppAssets.avatar3d),
         ])
           precacheImage(image, context, onError: (_, __) {}),
       ]).then((_) {
