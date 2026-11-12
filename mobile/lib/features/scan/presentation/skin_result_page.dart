@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import'../data/skin_demo_data.dart';
+import'../../education/data/skin_scan_education.dart';
+import'../../education/presentation/education_result_screen.dart';
 import'../../history/data/skin_history_repository.dart';
 import'../../journeys/data/skin_journey_store.dart';
 import'../models/skin_analysis.dart';
@@ -11,8 +12,8 @@ import'../../../shared/widgets/design_system/skin_ui.dart';
 import'../../progress/presentation/skin_progress_page.dart';
 import'./skin_scan_page.dart';
 
-/// Hasil satu foto. Dalam prototipe hasil berasal dari fixture demo yang
-/// SAMA dengan catatan Skin Journey setelah pengguna menekan Simpan.
+/// Hasil satu foto. Temuan visual berasal dari inference on-device;
+/// jenis kulit masih memakai nilai dummy sampai classifier tersedia.
 class SkinResultPage extends StatefulWidget {
   final Uint8List? selfieBytes;
   final SkinAnalysis? analysis;
@@ -38,54 +39,24 @@ class _SkinResultPageState extends State<SkinResultPage> {
   late final SkinAnalysis? _data;
   bool _saving = false;
   bool _saved = false;
-  final _educationKey = GlobalKey();
   final _findingsKey = GlobalKey();
 
-  static const _education = <String, (String, String)>{
-    'Acne': (
-      'Bersihkan wajah dengan lembut. Benzoyl peroxide, retinoid dan azelaic acid merupakan contoh bahan yang punya dasar bukti, tetapi pilihan bergantung pada toleransi dan kondisi kulit.',
-      'Efek sebagian terapi mulai dinilai setelah 6–8 minggu; evaluasi sekitar 12 minggu.'
-    ),
-    'PIH': (
-      'Prioritaskan perlindungan UV dan pencegahan peradangan baru. Azelaic acid termasuk bahan yang diteliti untuk hiperpigmentasi.',
-      'Pemudaran noda dapat memerlukan berbulan-bulan; bukan prediksi waktu sembuh.'
-    ),
-    'Dark Circle': (
-      'Lingkar gelap bisa berkaitan dengan pigmen, pembuluh darah atau struktur wajah. Jangan mencoba bahan aktif dekat mata tanpa mempertimbangkan risikonya.',
-      'Tidak ada estimasi durasi pemulihan yang universal.'
-    ),
-    'Redness': (
-      'Gunakan perawatan lembut, perhatikan pemicu iritasi dan gunakan perlindungan matahari yang sesuai.',
-      'Kemerahan pada foto tidak otomatis berarti rosacea.'
-    ),
-    'Wrinkle': (
-      'Perlindungan UV penting. Retinoid mempunyai penelitian pendukung, tetapi perlu memperhatikan iritasi serta batas keamanannya.',
-      'Sebagian penelitian menilai perubahan setelah 3–6 bulan atau lebih.'
-    ),
-  };
-
-  static const _labels = <String, String>{
-    'Acne': 'Jerawat',
-    'PIH': 'Noda (PIH)',
-    'Dark Circle': 'Lingkar mata',
-    'Redness': 'Kemerahan',
-    'Wrinkle': 'Garis halus',
-  };
-
-  static const _typeLabels = <String, String>{
-    'Dry': 'Kering',
-    'Oily': 'Berminyak',
-    'Normal': 'Normal',
-    'Combination': 'Kombinasi',
-  };
+  String _formatSkinType(String type) =>
+      skinTypeLabels[type] ??
+      switch (type.toLowerCase()) {
+        'dry' => 'Kering',
+        'oily' => 'Berminyak',
+        'normal' => 'Normal',
+        'combination' => 'Kombinasi',
+        _ => type,
+      };
 
   @override
   void initState() {
     super.initState();
-    _data = widget.analysis ??
-        (widget.selfieBytes == null
-            ? null
-            : SkinDemoData.forPhoto(widget.selfieBytes!));
+    // Scan production must pass a real on-device analysis. Do not fabricate
+    // visual findings when this page is opened without an analysis payload.
+    _data = widget.analysis;
   }
 
   String _pct(double v) => '${(v * 100).toStringAsFixed(0)}%';
@@ -122,7 +93,11 @@ class _SkinResultPageState extends State<SkinResultPage> {
       classConfidences: a.classConfidences,
       skinTypeConfidence: a.skinTypeConfidence,
       modelVersion: a.modelVersion,
-      quality: a.isDemo ? 'pass' : 'unchecked',
+      quality: a.modelConnected ? 'pass' : 'unchecked',
+      faceRect: a.faceRect,
+      visualBoxes: a.visualBoxes,
+      imageWidth: a.imageWidth,
+      imageHeight: a.imageHeight,
     );
     if (!mounted) return;
     setState(() {
@@ -136,7 +111,7 @@ class _SkinResultPageState extends State<SkinResultPage> {
   List<SkinMetric> _metrics(List<String> found, SkinAnalysis a) => [
         for (final c in found.take(4))
           (
-            label: _labels[c] ?? c,
+            label: findingLabels[c] ?? c,
             value: _amount(c, a),
             fraction: a.classConfidences[c] ??
                 (a.segmentationAreas[c] ?? .3).clamp(0.0, 1.0),
@@ -148,17 +123,31 @@ class _SkinResultPageState extends State<SkinResultPage> {
           ? '${a.detectionCounts[name] ?? 0} titik'
           : '${((a.segmentationAreas[name] ?? 0) * 100).toStringAsFixed(0)}%';
 
+  /// Navigasi ke halaman DETAIL edukasi (bukan halaman/dialog yang sama)
+  /// dengan membawa data hasil scan yang sedang dibuka.
+  Future<void> _openEducation(SkinAnalysis analysis) {
+    return Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => EducationResultScreen(
+          analysis: analysis,
+          selfieBytes: widget.selfieBytes,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final a = _data;
     final photo = a?.selfieBytes ?? widget.selfieBytes;
-    final hasData = a != null && (a.modelConnected || a.isDemo);
-    final found = a == null || !hasData ? const <String>[] : a.visualFindings;
-    final skinTypeConfidence = a?.skinTypeConfidence;
+    final analysis = a != null && (a.modelConnected || a.isDemo) ? a : null;
+    final hasData = analysis != null;
+    final found = analysis?.visualFindings ?? const <String>[];
+    final skinTypeConfidence = analysis?.skinTypeConfidence;
     final other = SkinJourneyStore.visualClasses
         .where((c) => !found.contains(c))
         .toList();
-    final type = hasData ? a.skinType : 'Belum diketahui';
+    final type = analysis?.skinType ?? 'Belum diketahui';
     final typeDesc = switch (type) {
       'Dry' =>
         'Cenderung membutuhkan perhatian pada kelembapan dan toleransi bahan aktif.',
@@ -169,10 +158,7 @@ class _SkinResultPageState extends State<SkinResultPage> {
         'Area T-zone dan pipi bisa memiliki kebutuhan yang berbeda.',
       _ => 'Estimasi jenis kulit belum tersedia.',
     };
-    final educated = found.where(_education.containsKey).toList();
-    final needsCare =
-        SkinJourneyStore.instance.answers['M03'] == 'Sedang-berat' ||
-            SkinJourneyStore.instance.answers['M06'] == 'Ya';
+    final educated = found.where(scanEducation.containsKey).toList();
 
     return Scaffold(
       backgroundColor: SkinTokens.backgroundLight,
@@ -184,7 +170,7 @@ class _SkinResultPageState extends State<SkinResultPage> {
                 constraints:
                     const BoxConstraints(maxWidth: SkinTokens.maxWidth),
                 // Seluruh isi dibangun sekaligus agar Scrollable.ensureVisible
-                // ke seksi temuan/edukasi selalu menemukan targetnya.
+                // ke seksi temuan selalu menemukan targetnya.
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.only(bottom: 24),
                   child: Column(
@@ -195,27 +181,36 @@ class _SkinResultPageState extends State<SkinResultPage> {
                           photo: photo == null ? null : MemoryImage(photo),
                           photoHeight: 400,
                           badge: hasData
-                              ? 'Jenis kulit: ${_typeLabels[type] ?? type}'
+                              ? 'Jenis kulit: ${_formatSkinType(type)}'
                               : 'Belum ada hasil',
+                          faceRect: analysis?.faceRect,
+                          visualBoxes: analysis?.visualBoxes ?? const [],
+                          imageWidth: analysis?.imageWidth,
+                          imageHeight: analysis?.imageHeight,
                           backKey: const Key('result-back'),
                           onBack: () => Navigator.of(context).maybePop(),
-                          trailing: a != null && a.isDemo
+                          trailing: analysis?.isDemo == true
                               ? const SkinPill(
                                   label: 'Demo',
                                   tone: SkinTone.warning,
                                   icon: Icons.science_outlined,
                                 )
                               : null,
-                          metrics: hasData ? _metrics(found, a) : const [],
+                          metrics: analysis != null
+                              ? _metrics(found, analysis)
+                              : const [],
                           emptyMessage: hasData
                               ? 'Tidak ada temuan visual pada sesi ini.'
                               : 'Hasil analisis belum tersedia.',
                           recommendationLabel: educated.isNotEmpty
                               ? 'Rekomendasi perawatan'
                               : 'Lihat rincian temuan',
-                          onRecommendation: () => _scrollTo(
-                            educated.isNotEmpty ? _educationKey : _findingsKey,
-                          ),
+                          // Edukasi dibuka sebagai halaman terpisah, bukan
+                          // digulir pada halaman hasil yang sama.
+                          onRecommendation: educated.isNotEmpty &&
+                                  analysis != null
+                              ? () => _openEducation(analysis)
+                              : () => _scrollTo(_findingsKey),
                         ),
                       ),
                       Padding(
@@ -246,7 +241,7 @@ class _SkinResultPageState extends State<SkinResultPage> {
                             SkinReveal(
                               delay: const Duration(milliseconds: 80),
                               child: _SkinTypeCard(
-                                type: _typeLabels[type] ?? type,
+                                type: _formatSkinType(type),
                                 description: typeDesc,
                                 confidence: hasData ? skinTypeConfidence : null,
                                 pct: _pct,
@@ -275,7 +270,7 @@ class _SkinResultPageState extends State<SkinResultPage> {
                                           color: Colors.white
                                               .withValues(alpha: .9),
                                         ),
-                                      _findingRow(c, a),
+                                      _findingRow(c, analysis),
                                     ],
                                   ]),
                                 ),
@@ -311,41 +306,71 @@ class _SkinResultPageState extends State<SkinResultPage> {
                                 children: [
                                   for (final c in other)
                                     SkinPill(
-                                      label: _labels[c] ?? c,
+                                      label: findingLabels[c] ?? c,
                                       tone: SkinTone.neutral,
                                     ),
                                 ],
                               ),
                             ],
+                            // Hasil edukasi TIDAK lagi ditampilkan di halaman
+                            // ini. Kartu ringkas berikut hanya menjadi pintu
+                            // masuk ke halaman detail edukasi terpisah.
                             if (educated.isNotEmpty) ...[
                               const SizedBox(height: 28),
-                              SkinSectionTitle(
-                                key: _educationKey,
+                              const SkinSectionTitle(
                                 title: 'Edukasi perawatan',
                                 subtitle:
                                     'Panduan umum untuk temuan pada sesi ini.',
                               ),
                               const SizedBox(height: 12),
-                              // Satu kartu per temuan, tanpa accordion yang
-                              // menduplikasi kartu temuan di atas.
-                              for (final c in educated) ...[
-                                _EducationCard(
-                                  name: _labels[c] ?? c,
-                                  color: _findingColor(c),
-                                  icon: _findingIcon(c),
-                                  body: _education[c]!.$1,
-                                  note: _education[c]!.$2,
+                              SkinCard(
+                                padding:
+                                    const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(children: [
+                                      const SkinIconTile(
+                                        icon: Icons.menu_book_rounded,
+                                        size: 44,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      const Expanded(
+                                        child: Text(
+                                          'Pahami setiap temuan dengan panduan singkat perawatan dan waktu evaluasinya.',
+                                          style: SkinTokens.caption,
+                                        ),
+                                      ),
+                                    ]),
+                                    const SizedBox(height: 12),
+                                    Wrap(
+                                      spacing: 6,
+                                      runSpacing: 6,
+                                      children: [
+                                        for (final c in educated)
+                                          SkinPill(
+                                            label: findingLabels[c] ?? c,
+                                            tone: SkinTone.primary,
+                                            dense: true,
+                                          ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 14),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: FilledButton.icon(
+                                        key: const Key('open-education-result'),
+                                        onPressed: analysis == null
+                                            ? null
+                                            : () => _openEducation(analysis),
+                                        icon: const Icon(
+                                            Icons.auto_stories_outlined),
+                                        label: const Text(
+                                            'Lihat Edukasi Perawatan'),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(height: 10),
-                              ],
-                            ],
-                            if (needsCare) ...[
-                              const SizedBox(height: 6),
-                              const SkinNotice(
-                                tone: SkinTone.danger,
-                                icon: Icons.local_hospital_outlined,
-                                message:
-                                    'Jika sedang dalam perawatan dokter atau mengalami keluhan berat, utamakan arahan tenaga kesehatan.',
                               ),
                             ],
                             const SizedBox(height: 14),
@@ -443,23 +468,6 @@ class _SkinResultPageState extends State<SkinResultPage> {
     );
   }
 
-  static IconData _findingIcon(String name) => switch (name) {
-        'Acne' => Icons.grain_rounded,
-        'PIH' => Icons.blur_on_rounded,
-        'Dark Circle' => Icons.remove_red_eye_outlined,
-        'Redness' => Icons.brightness_5_outlined,
-        _ => Icons.spa_outlined,
-      };
-
-  // Warna temuan diredam agar selaras dengan palet sage.
-  static Color _findingColor(String name) => switch (name) {
-        'Acne' => const Color(0xFFB8646B),
-        'PIH' => const Color(0xFFA9803A),
-        'Dark Circle' => const Color(0xFF7078A8),
-        'Redness' => const Color(0xFFB0677E),
-        _ => SkinTokens.aloe,
-      };
-
   // Satu panel ringkas; setiap kelas satu BARIS, bukan kartu tinggi 156 px.
   Widget _findingRow(String name, SkinAnalysis a) {
     final detection = SkinJourneyStore.detectionClasses.contains(name);
@@ -467,7 +475,7 @@ class _SkinResultPageState extends State<SkinResultPage> {
         ? '${a.detectionCounts[name] ?? 0}'
         : '${((a.segmentationAreas[name] ?? 0) * 100).toStringAsFixed(0)}%';
     final confidence = a.classConfidences[name];
-    final color = _findingColor(name);
+    final color = findingColor(name);
     return Padding(
       key: ValueKey('result-finding-$name'),
       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -479,7 +487,7 @@ class _SkinResultPageState extends State<SkinResultPage> {
                 color: color.withValues(alpha: .12),
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white)),
-            child: Icon(_findingIcon(name), color: color, size: 20)),
+            child: Icon(findingIcon(name), color: color, size: 20)),
         const SizedBox(width: 12),
         Expanded(
             child: Column(
@@ -587,94 +595,6 @@ class _SkinTypeCard extends StatelessWidget {
           ]),
           const SizedBox(height: 12),
           Text(description, style: SkinTokens.caption),
-        ],
-      ),
-    );
-  }
-}
-
-class _EducationCard extends StatelessWidget {
-  const _EducationCard({
-    required this.name,
-    required this.color,
-    required this.icon,
-    required this.body,
-    required this.note,
-  });
-
-  final String name;
-  final Color color;
-  final IconData icon;
-  final String body;
-  final String note;
-
-  @override
-  Widget build(BuildContext context) {
-    return SkinCard(
-      padding: const EdgeInsets.fromLTRB(16, 16, 18, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: .14),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, size: 16, color: color),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                name,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: SkinTokens.ink,
-                  fontSize: 15,
-                ),
-              ),
-            ),
-          ]),
-          const SizedBox(height: 10),
-          Text(
-            body,
-            style: const TextStyle(
-              color: SkinTokens.ink,
-              fontSize: 13.5,
-              height: 1.55,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: .7),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Padding(
-                  padding: EdgeInsets.only(top: 1),
-                  child: Icon(Icons.schedule_rounded,
-                      size: 14, color: SkinTokens.muted),
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    note,
-                    style: const TextStyle(
-                      color: SkinTokens.muted,
-                      fontSize: 12,
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );

@@ -21,8 +21,8 @@ class SkinLoginPage extends StatefulWidget {
 class _SkinLoginPageState extends State<SkinLoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  final _emailController = TextEditingController(text: 'alea@skinsight.id');
-  final _passwordController = TextEditingController(text: 'skinsight123');
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   final _scrollController = ScrollController();
 
   bool _obscurePassword = true;
@@ -58,6 +58,22 @@ class _SkinLoginPageState extends State<SkinLoginPage> {
           email: _emailController.text,
           password: _passwordController.text,
         );
+        if (!mounted) return;
+        // Jika pendaftaran membutuhkan konfirmasi email (currentSession masih null)
+        if (!auth.isAuthenticated) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Pendaftaran berhasil! Cek email untuk konfirmasi atau silakan langsung masuk.',
+              ),
+              duration: Duration(seconds: 4),
+            ),
+          );
+          setState(() {
+            _registerMode = false; // Pindahkan form ke mode Masuk
+          });
+          return;
+        }
       } else {
         await auth.signIn(
           email: _emailController.text,
@@ -85,8 +101,12 @@ class _SkinLoginPageState extends State<SkinLoginPage> {
       _googleBusy = true;
     });
     try {
-      await context.read<AuthService>().signInWithGoogle();
+      final auth = context.read<AuthService>();
+      await auth.signInWithGoogle();
       if (!mounted) return;
+      if (!auth.isAuthenticated) {
+        return; // Dibatalkan, jangan pindah halaman.
+      }
       AuthSession.instance.signIn();
       final destination = _destinationAfterAuthentication;
       Navigator.of(context).pushNamedAndRemoveUntil(destination, (_) => false);
@@ -227,15 +247,6 @@ class _SkinLoginPageState extends State<SkinLoginPage> {
             ),
           ),
           SizedBox(height: compact ? 18 : 22),
-          if (!_registerMode) ...[
-            _GoogleButton(
-              onTap: _continueWithGoogle,
-              busy: _googleBusy,
-            ),
-            const SizedBox(height: 16),
-            const _OrDivider(),
-            const SizedBox(height: 16),
-          ],
           if (_registerMode) ...[
             _AuthField(
               fieldKey: const Key('register-name'),
@@ -322,6 +333,13 @@ class _SkinLoginPageState extends State<SkinLoginPage> {
                     : 'Masuk',
             busy: _busy && !_googleBusy,
             onTap: _busy ? () {} : _submit,
+          ),
+          const SizedBox(height: 16),
+          const _OrDivider(),
+          const SizedBox(height: 16),
+          _GoogleButton(
+            onTap: _continueWithGoogle,
+            busy: _googleBusy,
           ),
           const SizedBox(height: 10),
           Wrap(
@@ -413,7 +431,7 @@ class _LoginVisualHero extends StatelessWidget {
               child: const SkinPortrait(
                 asset: AppAssets.scanPortrait,
                 alignment: Alignment(0, -.3),
-                semanticLabel: 'Potret model dengan kulit bercahaya',
+                semanticLabel: 'Maskot SkinSight dengan kaca pembesar',
               ),
             ),
           ),
@@ -698,7 +716,7 @@ class _OrDivider extends StatelessWidget {
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 12),
           child: Text(
-            'atau dengan email',
+            'atau',
             style: TextStyle(
               color: SkinTokens.muted,
               fontSize: 12.5,

@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import'../data/skin_journey_store.dart';
 import'../../scan/models/skin_analysis.dart';
+import'../../scan/data/skin_on_device_analyzer.dart';
 import'../../../core/theme/skin_theme.dart';
 import'../../../shared/widgets/asset_images.dart';
 import'../../../shared/widgets/skin_page_header.dart';
@@ -9,6 +10,7 @@ import'../../../shared/widgets/skin_page_background.dart';
 import'../../../shared/widgets/design_system/skin_ui.dart';
 import'../../scan/presentation/skin_result_page.dart';
 import'../../scan/presentation/skin_scan_page.dart';
+import'../../../shared/widgets/skin_analyzing_overlay.dart';
 
 /// Layar kiri sketsa: tambah beberapa sesi, lihat hasil SETIAP foto,
 /// dan kembali ke check-in ketika pengguna merasa cukup.
@@ -20,6 +22,7 @@ class SkinJourneyPhotosPage extends StatefulWidget {
 
 class _SkinJourneyPhotosPageState extends State<SkinJourneyPhotosPage> {
   final store = SkinJourneyStore.instance;
+  bool _isAnalyzing = false;
 
   SkinAnalysis _analysis(JourneyPhoto p) => SkinAnalysis(
         id: p.id,
@@ -40,6 +43,10 @@ class _SkinJourneyPhotosPageState extends State<SkinJourneyPhotosPage> {
         segmentationAreas: p.segmentationAreas,
         classConfidences: p.confidences,
         modelVersion: p.modelVersion,
+        faceRect: p.faceRect,
+        visualBoxes: p.visualBoxes,
+        imageWidth: p.imageWidth,
+        imageHeight: p.imageHeight,
       );
 
   Future<void> _openResult(JourneyPhoto p) async {
@@ -51,6 +58,7 @@ class _SkinJourneyPhotosPageState extends State<SkinJourneyPhotosPage> {
   }
 
   Future<void> _addPhoto() async {
+    if (_isAnalyzing) return;
     if (store.consent != true) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Izinkan pemrosesan foto pada kuesioner awal.')));
@@ -60,10 +68,24 @@ class _SkinJourneyPhotosPageState extends State<SkinJourneyPhotosPage> {
         MaterialPageRoute<Uint8List>(
             builder: (_) => const SkinScanPage(returnPhoto: true)));
     if (!mounted || bytes == null) return;
-    // Store menghitung fixture SATU KALI; preview membaca data yang sama.
-    store.stagePhoto(bytes);
-    final staged = store.pendingPhotos.last;
-    await _openResult(staged);
+
+    setState(() => _isAnalyzing = true);
+    try {
+      final analysis = await SkinOnDeviceAnalyzer.instance.analyze(
+        bytes,
+      );
+      if (!mounted) return;
+      store.stageAnalysis(analysis);
+      final staged = store.pendingPhotos.last;
+      await _openResult(staged);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString())),
+      );
+    } finally {
+      if (mounted) setState(() => _isAnalyzing = false);
+    }
   }
 
   String _finding(JourneyPhoto photo) {
@@ -81,9 +103,13 @@ class _SkinJourneyPhotosPageState extends State<SkinJourneyPhotosPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        backgroundColor: SkinTokens.background,
-        body: SkinPageBackground(
+  Widget build(BuildContext context) => PopScope(
+        canPop: !_isAnalyzing,
+        child: Scaffold(
+          backgroundColor: SkinTokens.background,
+          body: Stack(
+            children: [
+              SkinPageBackground(
             child: SafeArea(
                 bottom: false,
                 child: Center(
@@ -142,7 +168,7 @@ class _SkinJourneyPhotosPageState extends State<SkinJourneyPhotosPage> {
                                                 child: InkWell(
                                                     key: const Key(
                                                         'add-session'),
-                                                    onTap: _addPhoto,
+                                                    onTap: _isAnalyzing ? null : _addPhoto,
                                                     borderRadius:
                                                         BorderRadius.circular(
                                                             18),
@@ -252,6 +278,13 @@ class _SkinJourneyPhotosPageState extends State<SkinJourneyPhotosPage> {
                             ),
                           ])),
                 )))),
+              if (_isAnalyzing)
+                const SkinAnalyzingOverlay(
+                  phase: 'Menyusun hasil analisis...',
+                ),
+            ],
+          ),
+        ),
       );
 
   Widget _sessionCard(JourneyPhoto p, int index) => SkinCard(

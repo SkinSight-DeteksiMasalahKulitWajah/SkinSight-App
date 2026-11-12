@@ -1,4 +1,4 @@
-import 'dart:typed_data';
+import 'dart:ui' show Rect;
 import 'package:flutter/foundation.dart';
 import'../../scan/models/skin_analysis.dart';
 import'../../journeys/data/skin_journey_store.dart';
@@ -37,7 +37,11 @@ class SkinHistoryRepository extends ChangeNotifier {
       Map<String, double> classConfidences = const {},
       double? skinTypeConfidence,
       String? modelVersion,
-      String quality = 'unchecked'}) async {
+      String quality = 'unchecked',
+      Rect? faceRect,
+      List<SkinVisualBox> visualBoxes = const [],
+      int? imageWidth,
+      int? imageHeight}) async {
     final now = DateTime.now();
     final record = SkinAnalysis(
       id: 'scan-${now.microsecondsSinceEpoch}',
@@ -60,6 +64,10 @@ class SkinHistoryRepository extends ChangeNotifier {
       classConfidences: classConfidences,
       skinTypeConfidence: skinTypeConfidence,
       modelVersion: modelVersion,
+      faceRect: faceRect,
+      visualBoxes: visualBoxes,
+      imageWidth: imageWidth,
+      imageHeight: imageHeight,
     );
     _records.insert(0, record);
     if (bytes != null) {
@@ -73,7 +81,11 @@ class SkinHistoryRepository extends ChangeNotifier {
           confidences: classConfidences,
           skinTypeConfidence: skinTypeConfidence,
           modelVersion: modelVersion,
-          quality: quality);
+          quality: quality,
+          faceRect: faceRect,
+          visualBoxes: visualBoxes,
+          imageWidth: imageWidth,
+          imageHeight: imageHeight);
     }
     notifyListeners();
     return record;

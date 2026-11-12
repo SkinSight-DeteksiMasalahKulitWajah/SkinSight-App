@@ -12,6 +12,7 @@ const authRedirectTo = 'io.supabase.skinsight://login-callback/';
 /// Kontrak auth agar UI bisa diuji tanpa jaringan.
 /// Produksi: [SupabaseAuthService]. Tes/widget: [FakeAuthService].
 abstract class AuthService {
+  bool get isAuthenticated;
   Future<void> signUp(
       {required String name, required String email, required String password});
   Future<void> signIn({required String email, required String password});
@@ -34,6 +35,20 @@ void validateRegister(
 
 String friendlyAuthError(Object e) {
   final msg = e.toString();
+  if (msg.contains('SocketException') ||
+      msg.contains('Failed host lookup') ||
+      msg.contains('No address associated with hostname') ||
+      msg.contains('Network is unreachable') ||
+      msg.contains('Connection refused') ||
+      msg.contains('Connection reset') ||
+      msg.contains('ClientException') ||
+      msg.contains('HttpException')) {
+    return 'Gagal terhubung ke internet. Periksa koneksi data/WiFi HP Anda.';
+  }
+  if (msg.contains('over_email_send_rate_limit') ||
+      msg.contains('email rate limit exceeded')) {
+    return 'Batas pengiriman email Supabase tercapai (rate limit). Tunggu sebentar atau gunakan login Google / matikan kirim email di Supabase.';
+  }
   if (msg.contains('User already registered') ||
       msg.contains('already been registered')) {
     return 'Email sudah terdaftar. Silakan masuk.';
@@ -44,16 +59,27 @@ String friendlyAuthError(Object e) {
   if (msg.contains('Email not confirmed')) {
     return 'Email belum dikonfirmasi. Cek inbox lalu masuk.';
   }
+  if (msg.contains('signup is disabled') ||
+      msg.contains('Signups not allowed')) {
+    return 'Pendaftaran akun dinonaktifkan di Supabase.';
+  }
+  if (msg.contains('Database error saving new user') ||
+      msg.contains('Database error creating new user')) {
+    return 'Database error: trigger SQL profiles bermasalah.';
+  }
   if (msg.contains('provider is not enabled') ||
       msg.contains('Unsupported provider')) {
     return 'Provider Google belum aktif di dashboard Supabase.';
   }
-  return 'Gagal autentikasi. Coba lagi.';
+  return 'Gagal autentikasi: $msg';
 }
 
 /// Implementasi asli Supabase. Trigger SQL `handle_new_user()` membuat `profiles`.
 class SupabaseAuthService implements AuthService {
   SupabaseClient get _client => Supabase.instance.client;
+
+  @override
+  bool get isAuthenticated => _client.auth.currentSession != null;
 
   @override
   Future<void> signUp(
@@ -162,7 +188,14 @@ class SupabaseAuthService implements AuthService {
 /// Akun dummy `alea@skinsight.id` / `skinsight123` bawaan agar alur widget
 /// test tetap jalan; akun baru ikut terdaftar lewat [signUp].
 class FakeAuthService implements AuthService {
-  final Map<String, String> _passwords = {'alea@skinsight.id': 'skinsight123'};
+  final Map<String, String> _passwords = {
+    'alea@skinsight.id': 'skinsight123',
+    'admin@skinsight.id': 'skinsight123',
+  };
+  bool _fakeSignedIn = false;
+
+  @override
+  bool get isAuthenticated => _fakeSignedIn;
 
   @override
   Future<void> signUp(
@@ -175,6 +208,7 @@ class FakeAuthService implements AuthService {
       throw Exception('Email sudah terdaftar. Silakan masuk.');
     }
     _passwords[key] = password;
+    _fakeSignedIn = true;
   }
 
   @override
@@ -182,11 +216,16 @@ class FakeAuthService implements AuthService {
     if (_passwords[email.trim()] != password) {
       throw Exception('Email atau password salah.');
     }
+    _fakeSignedIn = true;
   }
 
   @override
-  Future<void> signInWithGoogle() async {}
+  Future<void> signInWithGoogle() async {
+    _fakeSignedIn = true;
+  }
 
   @override
-  Future<void> signOut() async {}
+  Future<void> signOut() async {
+    _fakeSignedIn = false;
+  }
 }

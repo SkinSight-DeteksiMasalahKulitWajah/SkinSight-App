@@ -17,130 +17,130 @@ Sebagai Backend Developer, tugas utama Anda adalah:
 
 ### Fase 1: Setup Arsitektur & Lingkungan Kerja
 - [x] **1.1. Inisialisasi Framework Backend**
-  - Gunakan **FastAPI (Python)** — direkomendasikan karena integrasi native dengan model AI/ML (Python/TensorFlow/PyTorch) dan performa async tinggi.
-  - Setup struktur folder di dalam `/backend`:
+  - Menggunakan **FastAPI (Python 3.10+)** dengan arsitektur modular (`api`, `core`, `models`, `schemas`, `services`).
+  - Struktur folder di `/backend` sudah tertata:
     ```text
     backend/
     ├── app/
     │   ├── api/
-    │   │   ├── routes/        # Router endpoint (auth, scan, product, journey)
-    │   │   └── deps.py        # Dependency injection (db, auth)
-    │   ├── core/              # Config, security, database connection
-    │   ├── models/            # SQLAlchemy / ORM models
-    │   ├── schemas/           # Pydantic models (request & response contracts)
-    │   ├── services/          # Business logic & ML inference caller
-    │   └── main.py            # FastAPI entry point
-    ├── tests/                 # Unit & integration tests (pytest)
+    │   │   ├── routes/        # Router endpoint (health, scan, users, journeys, dll.)
+    │   │   ├── deps.py        # Dependency injection (db session, auth)
+    │   │   └── api.py         # Root API router (/api/v1)
+    │   ├── core/              # Config (pydantic-settings), database engine
+    │   ├── models/            # SQLAlchemy ORM models
+    │   ├── schemas/           # Pydantic request/response schemas
+    │   ├── services/          # Business logic & ML inference pipeline
+    │   └── main.py            # FastAPI entry point & CORS
+    ├── alembic/               # Migrasi database async SQLAlchemy
+    ├── tests/                 # Unit & integration tests
     ├── Dockerfile             # Container configuration
     ├── requirements.txt       # Dependencies
-    └── .env.example           # Environment variables template
+    ├── schema.sql             # SQL Script Supabase
+    └── BACKEND_TASKS.md       # Roadmap & progress tracking
     ```
 - [x] **1.2. Konfigurasi Lingkungan & Keamanan Dasar**
-  - Setup `.env` untuk konfigurasi: database URL, Supabase keys/JWT secret, storage bucket, dan model path.
-  - Tambahkan middleware **CORS** agar aplikasi mobile (dan Flutter Web jika ada) bisa mengakses API tanpa kendala domain.
+  - Setup konfigurasi `.env` via `pydantic-settings` (`DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `CORS_ORIGINS`).
+  - Setup middleware **CORS** di `app/main.py`.
 
 ---
 
 ### Fase 2: Database & Skema Data (PostgreSQL / Supabase)
-- [ ] **2.1. Desain Skema Database**
-  - Tabel `profiles`: Profil pengguna (nama, usia, tipe kulit dominan, riwayat alergi).
-  - Tabel `quiz_submissions`: Jawaban kuis awal gaya hidup pengguna.
-  - Tabel `scan_records`: Riwayat hasil scan:
-    - ID, user_id, image_url, analyzed_at
-    - Skor kesehatan kulit (overall score 0-100)
-    - Nilai metrik: `oil`, `pores`, `acne`, `redness`
-    - Visual findings (array of text: misal `["Kemerahan di pipi", "Komedo di hidung"]`)
-    - Metadata model: `model_version`, `confidence_score`
-  - Tabel `skin_journeys` & `journey_checkins`: Catatan perkembangan kulit rutin dan foto berkala pengguna.
-  - Tabel `ingredients`: Database bahan aktif (misal: Salicylic Acid, Niacinamide, Ceramide, Centella Asiatica) beserta fungsi dan kecocokan jenis kulit.
-  - Tabel `products`: Katalog produk skincare (nama produk, brand, kategori, harga, link pembelian/affiliate, list ingredients yang terkandung).
-- [ ] **2.2. Migrasi Database**
-  - Setup tool migrasi seperti **Alembic** (jika memakai SQLAlchemy) untuk version control skema database.
+- [x] **2.1. Desain Skema Database**
+  - Tabel `profiles`: Profil pengguna (nama, usia, tipe kulit, riwayat alergi).
+  - Tabel `quiz_submissions`: Jawaban kuis awal preferensi & gaya hidup.
+  - Tabel `scan_records`: Riwayat hasil scan wajah (overall score, metrik `oil`, `pores`, `acne`, `redness`, visual findings, model version).
+  - Tabel `skin_journeys` & `journey_checkins`: Catatan perkembangan kulit dan check-in berkala.
+  - Tabel `ingredients`: Database bahan aktif & kecocokan kondisi kulit.
+  - Tabel `products`: Katalog skincare beserta rekomendasi bahan aktif & harga.
+- [x] **2.2. Migrasi Database & Otomatisasi Anti-Pause**
+  - Setup **Alembic** (`alembic.ini`, `alembic/env.py`, `script.py.mako`) untuk migrasi database terstruktur.
+  - Menyediakan script manual SQL `schema.sql` untuk dijalankan langsung di Supabase SQL Editor.
+  - Menyiapkan GitHub Action `keep-supabase-alive.yml` untuk menjaga project Supabase tetap aktif.
 
 ---
 
 ### Fase 3: Integrasi Model Machine Learning (Inference Pipeline)
 *(Kolaborasi intensif dengan ML Engineer: Rafazl)*
 
-- [ ] **3.1. Buat Service Wrapper Inferensi ML (`app/services/ml_service.py`)**
-  - Mekanisme loading model (`.h5`, `.tflite`, atau `onnx`) saat startup server (bukan load ulang di setiap request agar hemat memori & cepat).
-  - Preprocessing gambar masuk: validasi format (JPEG/PNG), ukuran file maks (misal 5MB), resize sesuai resolusi input model, dan normalisasi tensor.
-  - Ekstraksi output prediksi model ke dalam metrik yang dimengerti oleh aplikasi:
-    - *Skin type classification* (Normal, Berminyak, Kering, Kombinasi, Sensitif)
-    - *Skin problem detection* (Acne, Pores, Redness, Oil level)
-- [ ] **3.2. Buat Mock / Fallback Inference**
-  - Sediakan fallback data simulasi (mirip logika `SkinDemoData`) jika model ML sedang dalam proses training atau belum siap dideploy, agar tim Mobile tidak terblokir.
+- [x] **3.1. Buat Service Wrapper Inferensi ML (`app/services/ml_service.py`)**
+  - Service `MLInferenceService` singleton yang memuat model saat startup.
+  - Validasi MIME type (`image/jpeg`, `image/png`, `image/webp`) dan batas ukuran file (maksimal 10MB) pada layer route.
+  - Parsing output prediksi ke format skema standar SkinSight:
+    - *Skin type classification* (`Kombinasi`, `Berminyak`, `Kering`, `Normal`, `Sensitif`)
+    - *Skin problem metrics* (`oil`, `pores`, `acne`, `redness` skala 0–100)
+    - *Visual findings* dan analisis deskriptif
+- [x] **3.2. Buat Mock / Fallback Inference**
+  - Menyediakan fallback data simulasi (mode `USE_MOCK_ML=true`) agar tim Mobile dapat langsung mengintegrasikan upload gambar & menerima response analisis tanpa menunggu model final ditraining.
+- [ ] **3.3. Integrasi Bobot Model Asli (.h5 / .tflite / ONNX)**
+  - Menunggu penyerahan file model final dari tim Machine Learning (Rafazl).
+  - Mengimplementasikan preprocessing tensor (resize, normalize) sesuai arsitektur model ML.
 
 ---
 
 ### Fase 4: Engine Rekomendasi Skincare & Bahan Aktif
-- [ ] **4.1. Logika Pemetaan Bahan Aktif (Ingredient Rule Engine)**
-  - Tentukan aturan rekomendasi berdasarkan hasil scan:
-    - Masalah Jerawat/Minyak tinggi $\rightarrow$ Rekomendasikan *Salicylic Acid*, *Tea Tree*, *Niacinamide*. Hindari minyak berat (*heavy comedogenic oils*).
-    - Masalah Kemerahan/Skin barrier rusak $\rightarrow$ Rekomendasikan *Centella Asiatica*, *Ceramide*, *Hyaluronic Acid*. Hindari eksfoliasi keras.
-- [ ] **4.2. Filter Katalog Skincare Berdasarkan Budget**
-  - Buat query pencarian produk skincare berdasarkan:
-    - Kecocokan bahan aktif yang disarankan
-    - Filter rentang harga (*budget filter*: `< Rp 50.000`, `Rp 50.000 - Rp 150.000`, `> Rp 150.000`)
+- [x] **4.1. Logika Pemetaan Bahan Aktif (Baseline Rule Engine)**
+  - Pemetaan rekomendasi bahan aktif berbasis kondisi dominan:
+    - Masalah Jerawat/Minyak tinggi $\rightarrow$ Rekomendasi *Niacinamide*, *Salicylic Acid*, *Tea Tree*.
+    - Masalah Kemerahan/Skin barrier $\rightarrow$ Rekomendasi *Centella Asiatica*, *Ceramide*, *Hyaluronic Acid*.
+- [ ] **4.2. Filter Katalog Skincare Berdasarkan Database & Budget**
+  - Query produk skincare dari database berdasarkan hasil analisis kulit.
+  - Filter rentang harga (*budget filter*: `< Rp 50.000`, `Rp 50.000 - Rp 150.000`, `> Rp 150.000`).
 
 ---
 
 ### Fase 5: Implementasi REST API Endpoints
 
-#### A. Autentikasi & Profil Pengguna (`/api/v1/users`)
-- `POST /api/v1/users/sync` : Sinkronisasi data user dari Supabase Auth ke database backend.
-- `GET /api/v1/users/me` : Ambil profil pengguna beserta preferensi kulit.
-- `PUT /api/v1/users/me` : Update data profil dan preferensi.
+#### A. Health & System
+- [x] `GET /health` : Health check status API & konektivitas sistem.
+- [x] `GET /` : Redirect otomatis ke Swagger UI (`/docs`).
 
-#### B. Kuis Gaya Hidup (`/api/v1/quiz`)
-- `POST /api/v1/quiz/submit` : Simpan hasil kuis kondisi kulit awal pengguna.
+#### B. Pemindaian & Analisis Kulit (`/api/v1/scan`) — *Endpoint Utama*
+- [x] `POST /api/v1/scan/analyze` : Menerima multipart image, memproses inferensi (mock/ML), dan mengembalikan metrik kesehatan kulit serta rekomendasi produk.
+- [ ] `GET /api/v1/scan/history` : Mengambil daftar riwayat scan pengguna (paginasi).
+- [ ] `GET /api/v1/scan/history/{scan_id}` : Mengambil detail satu hasil scan.
 
-#### C. Pemindaian & Analisis Kulit (`/api/v1/scan`) — *Endpoint Utama*
-- `POST /api/v1/scan/analyze` :
-  - Menerima file upload gambar wajah pengguna (`multipart/form-data`).
-  - Mengunggah foto ke storage bucket (Supabase Storage / S3).
-  - Menjalankan inferensi model ML.
-  - Menghitung rekomendasi bahan aktif & produk.
-  - Menyimpan ke `scan_records`.
-  - Mengembalikan JSON hasil analisis lengkap (sesuai kontrak model `SkinAnalysis`).
-- `GET /api/v1/scan/history` : Mengambil daftar riwayat scan pengguna (paginasi).
-- `GET /api/v1/scan/history/{scan_id}` : Mengambil detail satu hasil scan.
+#### C. Autentikasi & Profil Pengguna (`/api/v1/users`)
+- [ ] `POST /api/v1/users/sync` : Sinkronisasi data user dari Supabase Auth ke tabel `profiles`.
+- [ ] `GET /api/v1/users/me` : Ambil profil pengguna beserta preferensi kulit.
+- [ ] `PUT /api/v1/users/me` : Update data profil dan preferensi.
 
-#### D. Perjalanan Kulit / Journey (`/api/v1/journeys`)
-- `GET /api/v1/journeys` : Ambil journey aktif pengguna.
-- `POST /api/v1/journeys/checkin` : Simpan foto check-in progres kulit berkala.
+#### D. Kuis Gaya Hidup (`/api/v1/quiz`)
+- [ ] `POST /api/v1/quiz/submit` : Simpan hasil kuis kondisi kulit awal pengguna.
 
-#### E. Katalog Produk & Edukasi (`/api/v1/catalog` & `/api/v1/education`)
-- `GET /api/v1/catalog/products` : Filter produk berdasarkan tipe kulit, bahan aktif, dan batas harga.
-- `GET /api/v1/education/articles` : Mengambil artikel dan tips perawatan kulit harian.
+#### E. Perjalanan Kulit / Journey (`/api/v1/journeys`)
+- [ ] `GET /api/v1/journeys` : Ambil status journey aktif pengguna.
+- [ ] `POST /api/v1/journeys/checkin` : Simpan check-in progres kulit berkala.
+
+#### F. Katalog Produk & Edukasi (`/api/v1/catalog` & `/api/v1/education`)
+- [ ] `GET /api/v1/catalog/products` : Filter produk berdasarkan tipe kulit, bahan aktif, dan batas harga.
+- [ ] `GET /api/v1/education/articles` : Mengambil artikel dan tips perawatan kulit harian.
 
 ---
 
 ### Fase 6: Penyimpanan Gambar (Cloud Storage)
 - [ ] **6.1. Setup Bucket Penyimpanan Wajah**
-  - Gunakan Supabase Storage atau AWS S3.
-  - Buat bucket khusus untuk upload scan wajah dengan akses yang terkontrol (Private / Signed URL atau Protected Bucket).
-  - Pastikan privasi data wajah terjaga (GDPR / penafian privasi data medis).
+  - Konfigurasi Supabase Storage bucket (`skin-scans`) dengan RLS (Row Level Security).
+  - Simpan URL gambar hasil upload ke dalam kolom `image_url` pada tabel `scan_records`.
+  - Pastikan privasi data wajah terjaga (Protected / Signed URL).
 
 ---
 
 ### Fase 7: Pengujian, Dokumentasi, & Deployment
-- [ ] **7.1. Dokumentasi Swagger / OpenAPI**
-  - Pastikan semua schema Request & Response di Pydantic memiliki deskripsi dan tipe data yang presisi.
-  - Dokumentasi otomatis dapat diakses di `/docs` (Swagger UI) dan `/redoc`.
-- [ ] **7.2. Automated Testing**
-  - Unit test untuk business logic rekomendasi.
-  - API integration test (upload test image dan pastikan format respons valid).
+- [x] **7.1. Dokumentasi Swagger / OpenAPI**
+  - OpenAPI & Swagger UI aktif di `/docs` dan ReDoc di `/redoc`.
+  - Skema Pydantic `ScanAnalysisResponse` telah didefinisikan secara rapi.
+- [x] **7.2. Automated Testing Baseline**
+  - Unit test `backend/tests/test_health.py` untuk memvalidasi endpoint dasar.
 - [ ] **7.3. Deployment & CI/CD**
   - Buat `Dockerfile` yang ringan dan efisien.
-  - Setup deployment ke cloud platform (misal: Railway, Render, Fly.io, atau VPS Kampus/Server PBL).
-  - Bagikan base URL API kepada Bintang (Mobile Dev) untuk mulai integrasi HTTP client.
+  - Setup deployment ke cloud platform (misal: Railway, Render, Fly.io, atau VPS).
+  - Bagikan base URL API ke Bintang (Mobile Dev) untuk integrasi HTTP client.
 
 ---
 
 ## 🤝 Koordinasi Antar Peran
-| Rekan Tim | Hal yang Perlu Dikoordinasikan |
-| :--- | :--- |
-| **Bintang (Mobile Dev)** | Menyepakati kontrak JSON request/response endpoint `/scan/analyze` dan format error response. |
-| **Rafazl (ML Engineer)** | Format file model yang diserahkan (`.h5`, `.tflite`, atau `onnx`), ukuran input citra, normalisasi nilai piksel, dan format tensor output. |
-| **Adam (Project Manager)** | Melaporkan progres pengerjaan milestone backend mingguan sesuai jadwal PBL. |
+| Rekan Tim | Hal yang Perlu Dikoordinasikan | Status |
+| :--- | :--- | :--- |
+| **Bintang (Mobile Dev)** | Kontrak JSON request/response endpoint `/scan/analyze` dan integrasi HTTP client. | Siap diintegrasikan (Mock aktif) |
+| **Rafazl (ML Engineer)** | Format file model final (`.h5`, `.tflite`, atau `onnx`), ukuran dimensi input citra, dan normalisasi tensor. | Menunggu model final |
+| **Adam (Project Manager)** | Melaporkan progres pengerjaan milestone backend mingguan sesuai jadwal PBL. | Terus diperbarui |

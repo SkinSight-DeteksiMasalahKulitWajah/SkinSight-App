@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
-import'../data/skin_demo_data.dart';
+import'../data/skin_on_device_analyzer.dart';
 import'../../history/data/skin_history_repository.dart';
 import'../../journeys/data/skin_journey_store.dart';
 import'../models/skin_analysis.dart';
@@ -13,6 +13,7 @@ import'../../../shared/widgets/skin_page_background.dart';
 import'../../../shared/widgets/design_system/skin_ui.dart';
 import'./skin_result_page.dart';
 import'./skin_scan_page.dart';
+import'../../../shared/widgets/skin_analyzing_overlay.dart';
 
 /// Mengumpulkan beberapa foto untuk membentuk satu baseline awal.
 /// Nilai rata-rata di sini adalah ringkasan teknis hasil model, bukan skor
@@ -37,6 +38,7 @@ class _SkinInitialScanPageState extends State<SkinInitialScanPage> {
   static const _maxScans = 3;
   final List<SkinAnalysis> _sessions = [];
   bool _saving = false;
+  bool _analyzing = false;
 
   @override
   void initState() {
@@ -47,7 +49,7 @@ class _SkinInitialScanPageState extends State<SkinInitialScanPage> {
   }
 
   Future<void> _addScan() async {
-    if (_sessions.length >= _maxScans) return;
+    if (_sessions.length >= _maxScans || _analyzing || _saving) return;
     final capturePhoto = widget.capturePhoto;
     final bytes = capturePhoto == null
         ? await Navigator.of(context).push<Uint8List>(
@@ -60,10 +62,25 @@ class _SkinInitialScanPageState extends State<SkinInitialScanPage> {
           )
         : await capturePhoto(_sessions.length);
     if (!mounted || bytes == null) return;
-    final candidate = SkinDemoData.forPhoto(
-      bytes,
-      sessionIndex: _sessions.length,
-    );
+
+    setState(() => _analyzing = true);
+    SkinAnalysis candidate;
+    try {
+      candidate = await SkinOnDeviceAnalyzer.instance.analyze(
+        bytes,
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.toString())),
+        );
+      }
+      return;
+    } finally {
+      if (mounted) setState(() => _analyzing = false);
+    }
+
+    if (!mounted) return;
     setState(() => _sessions.add(candidate));
     final action = await Navigator.of(context).push<String>(
       MaterialPageRoute<String>(
@@ -229,7 +246,7 @@ class _SkinInitialScanPageState extends State<SkinInitialScanPage> {
       classConfidences: average.classConfidences,
       skinTypeConfidence: average.skinTypeConfidence,
       modelVersion: average.modelVersion,
-      quality: average.isDemo ? 'pass' : 'unchecked',
+      quality: average.modelConnected ? 'pass' : 'unchecked',
     );
     if (!mounted) return;
     final name = await _askJourneyName();
@@ -247,9 +264,13 @@ class _SkinInitialScanPageState extends State<SkinInitialScanPage> {
     final hasScans = _sessions.isNotEmpty;
     final average = hasScans ? _averageAnalysis() : null;
     final full = _sessions.length >= _maxScans;
-    return Scaffold(
-      backgroundColor: SkinTokens.background,
-      body: SkinPageBackground(
+    return PopScope(
+      canPop: !_analyzing,
+      child: Scaffold(
+        backgroundColor: SkinTokens.background,
+        body: Stack(
+          children: [
+            SkinPageBackground(
         child: SafeArea(
           bottom: false,
           child: Center(
@@ -321,7 +342,7 @@ class _SkinInitialScanPageState extends State<SkinInitialScanPage> {
                                   backgroundColor: SkinTokens.primary,
                                   minimumSize: const Size(46, 46),
                                 ),
-                                onPressed: full ? null : _addScan,
+                                onPressed: full || _saving || _analyzing ? null : _addScan,
                                 icon: const Icon(Icons.add_a_photo_rounded),
                               ),
                             ],
@@ -394,7 +415,7 @@ class _SkinInitialScanPageState extends State<SkinInitialScanPage> {
                       width: double.infinity,
                       child: FilledButton.icon(
                         key: const Key('save-initial-scans'),
-                        onPressed: !hasScans || _saving ? null : _saveJourney,
+                        onPressed: !hasScans || _saving || _analyzing ? null : _saveJourney,
                         icon: const Icon(Icons.bookmark_add_outlined),
                         label: Text(
                           _saving ? 'Menyimpan...' : 'Simpan ke Journey',
@@ -408,7 +429,14 @@ class _SkinInitialScanPageState extends State<SkinInitialScanPage> {
           ),
         ),
       ),
-    );
+      if (_analyzing)
+        const SkinAnalyzingOverlay(
+          phase: 'Menyusun hasil analisis...',
+        ),
+    ],
+  ),
+),
+);
   }
 }
 
