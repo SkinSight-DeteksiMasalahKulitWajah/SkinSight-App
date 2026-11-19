@@ -64,12 +64,14 @@ class _EducationResultScreenState extends State<EducationResultScreen> {
       );
 
       // Bangun checkin history dari journey
-      final checkinHistory = store.checkins.map((c) => <String, dynamic>{
-            'week': store.checkins.indexOf(c) + 1,
-            'per_class': c.perClass,
-            'treatment': c.treatment,
-            'irritation': c.irritation,
-          }).toList();
+      final checkinHistory = store.checkins
+          .map((c) => <String, dynamic>{
+                'week': store.checkins.indexOf(c) + 1,
+                'per_class': c.perClass,
+                'treatment': c.treatment,
+                'irritation': c.irritation,
+              })
+          .toList();
 
       final result = await RecommendationService.instance.getRecommendation(
         scanData: scanData,
@@ -93,17 +95,17 @@ class _EducationResultScreenState extends State<EducationResultScreen> {
 
   String _pct(double value) => '${(value * 100).toStringAsFixed(0)}%';
 
-  String _amount(String name) =>
-      SkinJourneyStore.detectionClasses.contains(name)
-          ? '${widget.analysis.detectionCounts[name] ?? 0} titik'
-          : '${((widget.analysis.segmentationAreas[name] ?? 0) * 100).toStringAsFixed(0)}%';
+  String _amount(String name) => SkinJourneyStore.detectionClasses
+          .contains(name)
+      ? '${analysis.detectionCounts[name] ?? 0} titik'
+      : '${((analysis.segmentationAreas[name] ?? 0) * 100).toStringAsFixed(0)}%';
 
   @override
   Widget build(BuildContext context) {
     final photo = widget.analysis.selfieBytes ?? widget.selfieBytes;
     final store = SkinJourneyStore.instance;
-    final needsCare = store.answers['M03'] == 'Sedang-berat' ||
-        store.answers['M06'] == 'Ya';
+    final needsCare =
+        store.answers['M03'] == 'Sedang-berat' || store.answers['M06'] == 'Ya';
 
     return Scaffold(
       backgroundColor: SkinTokens.background,
@@ -139,8 +141,7 @@ class _EducationResultScreenState extends State<EducationResultScreen> {
                             key: const Key('education-result-done'),
                             onPressed: () => Navigator.of(context).maybePop(),
                             icon: const Icon(Icons.arrow_back_rounded),
-                            label:
-                                const Text('Kembali ke hasil analisis'),
+                            label: const Text('Kembali ke hasil analisis'),
                           ),
                         ),
                       ),
@@ -319,8 +320,7 @@ class _EducationResultScreenState extends State<EducationResultScreen> {
                 for (int i = 0; i < rec.routine.length; i++) ...[
                   if (i > 0)
                     Divider(
-                        height: 1,
-                        color: Colors.white.withValues(alpha: .9)),
+                        height: 1, color: Colors.white.withValues(alpha: .9)),
                   _RoutineRow(step: rec.routine[i]),
                 ],
               ],
@@ -555,8 +555,8 @@ class _SummaryCard extends StatelessWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(16),
                 child: photo != null
-                    ? Image.memory(photo!, width: 64, height: 76,
-                        fit: BoxFit.cover)
+                    ? Image.memory(photo!,
+                        width: 64, height: 76, fit: BoxFit.cover)
                     : const ColoredBox(
                         color: SkinTokens.mint,
                         child: SizedBox(
@@ -573,8 +573,7 @@ class _SummaryCard extends StatelessWidget {
                   children: [
                     const Text('HASIL SESI INI', style: SkinTokens.eyebrow),
                     const SizedBox(height: 3),
-                    Text(type,
-                        style: SkinTokens.number.copyWith(fontSize: 22)),
+                    Text(type, style: SkinTokens.number.copyWith(fontSize: 22)),
                     const SizedBox(height: 3),
                     Text(
                       [
@@ -597,8 +596,7 @@ class _SummaryCard extends StatelessWidget {
               children: [
                 for (final name in findings)
                   SkinPill(
-                    label:
-                        '${findingLabels[name] ?? name} · ${amount(name)}',
+                    label: '${findingLabels[name] ?? name} · ${amount(name)}',
                     tone: SkinTone.neutral,
                     dense: true,
                   ),

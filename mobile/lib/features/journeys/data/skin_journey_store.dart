@@ -23,8 +23,14 @@ class SkinJourneyStore extends ChangeNotifier {
     'Redness',
     'Wrinkle',
   ];
-  static const detectionClasses = <String>['Acne', 'PIH', 'Dark Circle'];
-  static const segmentationClasses = <String>['Redness', 'Wrinkle'];
+  static const detectionClasses = <String>[
+    'Acne',
+    'PIH',
+    'Dark Circle',
+    'Redness',
+    'Wrinkle',
+  ];
+  static const segmentationClasses = <String>[];
   static const skinTypes = <String>['Oily', 'Dry', 'Normal', 'Combination'];
 
   final List<SkinJourneyRecord> _journeys = [];
