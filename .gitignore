@@ -22,3 +22,7 @@ build/
 *.iml
 .DS_Store
 Thumbs.db
+
+# Machine Learning Checkpoints
+*.pt
+SkinSight_Checkpoints/

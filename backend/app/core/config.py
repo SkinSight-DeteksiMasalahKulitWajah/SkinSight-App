@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     ML_MODEL_PATH: str = "models/skin_classifier.tflite"
     USE_MOCK_ML: bool = True
 
+    # LLM (Gemini API) Configuration
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-2.0-flash"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
