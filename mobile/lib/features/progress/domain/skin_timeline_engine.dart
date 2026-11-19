@@ -144,7 +144,7 @@ class SkinTimelineEngine {
           if (next['code'] != t.band['code']) {
             t.changes.add('${t.band['code']} → ${next['code']}');
             t.note(photo.date, baseline,
-                'Jumlah/luas temuan pada foto sebanding berpindah rentang pemantauan.');
+                'Jumlah temuan pada foto sebanding berpindah rentang pemantauan.');
             t.band = next;
           }
           // Band naik memperpanjang horizon; band turun tidak memotong sepihak.

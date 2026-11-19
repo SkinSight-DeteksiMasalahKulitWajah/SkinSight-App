@@ -34,9 +34,7 @@ class EducationResultScreen extends StatelessWidget {
   String _pct(double value) => '${(value * 100).toStringAsFixed(0)}%';
 
   String _amount(String name) =>
-      SkinJourneyStore.detectionClasses.contains(name)
-          ? '${analysis.detectionCounts[name] ?? 0} titik'
-          : '${((analysis.segmentationAreas[name] ?? 0) * 100).toStringAsFixed(0)}%';
+      '${analysis.detectionCounts[name] ?? 0} titik';
 
   @override
   Widget build(BuildContext context) {
