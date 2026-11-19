@@ -30,13 +30,8 @@ class _SkinProgressPageState extends State<SkinProgressPage> {
   String _selected = 'Acne';
 
   String _date(DateTime d) => SkinFormat.dayMonth(d);
-  String _value(String name, double v) =>
-      SkinJourneyStore.detectionClasses.contains(name)
-          ? '${v.toInt()}'
-          : '${(v * 100).toStringAsFixed(0)}%';
-  String _unit(String name) => SkinJourneyStore.detectionClasses.contains(name)
-      ? 'area terdeteksi'
-      : 'luas mask wajah';
+  String _value(String name, double v) => '${v.toInt()}';
+  String _unit(String name) => 'titik terdeteksi';
 
   String _statusSubtitle(SkinJourneyStore store) {
     if (!store.hasBaseline) return 'Belum ada scan awal';
@@ -307,8 +302,7 @@ class _SkinProgressPageState extends State<SkinProgressPage> {
                   fontWeight: FontWeight.w800,
                   color: SkinTokens.ink)),
           const SizedBox(height: 3),
-          Text(isDetection ? 'Jumlah temuan terdeteksi' : 'Luas mask wajah',
-              style: SkinTokens.caption),
+          const Text('Jumlah temuan terdeteksi', style: SkinTokens.caption),
         ])),
         if (values.isNotEmpty)
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
@@ -376,11 +370,9 @@ class _SkinProgressPageState extends State<SkinProgressPage> {
             ])),
       ],
       const SizedBox(height: 12),
-      Text(
-          isDetection
-              ? 'Angka menunjukkan jumlah box terdeteksi pada foto dengan pose dan versi model yang sebanding; bukan tingkat keparahan.'
-              : 'Angka menunjukkan proporsi luas mask dari area wajah yang valid; bukan skor kesembuhan.',
-          style: const TextStyle(
+      const Text(
+          'Angka menunjukkan jumlah temuan terdeteksi pada foto dengan pose dan versi model yang sebanding; bukan tingkat keparahan.',
+          style: TextStyle(
               color: SkinTokens.muted, fontSize: 11.5, height: 1.45)),
     ]));
   }
@@ -873,21 +865,14 @@ class _JourneyCompletionContentState extends State<_JourneyCompletionContent> {
     super.dispose();
   }
 
-  String _metricValue(String condition, double value) {
-    if (SkinJourneyStore.detectionClasses.contains(condition)) {
-      return value.toInt().toString();
-    }
-    return '${(value * 100).toStringAsFixed(0)}%';
-  }
+  String _metricValue(String condition, double value) =>
+      value.toInt().toString();
 
   String _progressLabel(String condition) {
     final values = SkinJourneyStore.instance.metricHistory(condition);
     if (values.length < 2) return 'Belum dapat dibandingkan';
-    final suffix = SkinJourneyStore.detectionClasses.contains(condition)
-        ? ' temuan'
-        : ' luas mask';
     return '${_metricValue(condition, values.first.value)} → '
-        '${_metricValue(condition, values.last.value)}$suffix';
+        '${_metricValue(condition, values.last.value)} temuan';
   }
 
   void _submitFeedback() {

@@ -1,0 +1,9 @@
+// Add/merge this inside the existing android { buildTypes { ... } } block
+// in android/app/build.gradle.
+// Keep your current signingConfig and other release settings unchanged.
+
+release {
+    // Keep your existing minifyEnabled / shrinkResources values.
+    // The proguard file is applied when minification is enabled.
+    proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+}

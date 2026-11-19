@@ -21,28 +21,27 @@ class SkinOnDeviceAnalyzer {
 
   static const int _inputSize = 640;
   static const int _anchors = 8400;
-  static const int _maskChannels = 32;
-  static const int _maskSize = 160;
   // Match the prototype slider's lowest setting (0.05) to ensure sensitive detection on mobile.
   static const double _detectionConfidenceThreshold = 0.05;
-  static const double _segmentationConfidenceThreshold = 0.05;
   static const double _nmsIouThreshold = 0.70;
   static const double _facePadding = 0.12;
   static const int _maxDetections = 300;
 
   static const _modelVersion =
-      'skinsight-yolov8-litert-face-roi-v3-detect-conf-005';
+      'skinsight-yolo11n-litert-all-conditions-v1';
   static const _detectionAsset =
-      'assets/ml_models/acne_pih_darkcircle_float32.tflite';
-  static const _rednessAsset = 'assets/ml_models/redness_float32.tflite';
-  static const _wrinkleAsset = 'assets/ml_models/wrinkle_float32.tflite';
+      'assets/ml_models/all_conditions_detect_float32.tflite';
 
-  static const _detectionNames = <String>['Acne', 'PIH', 'Dark Circle'];
+  static const _detectionNames = <String>[
+    'Acne',
+    'PIH',
+    'Dark Circle',
+    'Redness',
+    'Wrinkle',
+  ];
 
   FaceDetector? _faceDetector;
   _YoloRuntime? _detectionRuntime;
-  _YoloRuntime? _rednessRuntime;
-  _YoloRuntime? _wrinkleRuntime;
   Future<void>? _initializing;
   bool _disposed = false;
 
@@ -60,10 +59,7 @@ class SkinOnDeviceAnalyzer {
     if (_disposed) {
       throw StateError('SkinSight analyzer sudah ditutup.');
     }
-    if (_faceDetector != null &&
-        _detectionRuntime != null &&
-        _rednessRuntime != null &&
-        _wrinkleRuntime != null) {
+    if (_faceDetector != null && _detectionRuntime != null) {
       return Future<void>.value();
     }
     return _initializing ??= _initialize();
@@ -84,21 +80,7 @@ class SkinOnDeviceAnalyzer {
       _detectionRuntime = await _YoloRuntime.load(
         _detectionAsset,
         expectedOutputs: const [
-          [1, 7, _anchors],
-        ],
-      );
-      _rednessRuntime = await _YoloRuntime.load(
-        _rednessAsset,
-        expectedOutputs: const [
-          [1, 37, _anchors],
-          [1, _maskChannels, _maskSize, _maskSize],
-        ],
-      );
-      _wrinkleRuntime = await _YoloRuntime.load(
-        _wrinkleAsset,
-        expectedOutputs: const [
-          [1, 37, _anchors],
-          [1, _maskChannels, _maskSize, _maskSize],
+          [1, 9, _anchors],
         ],
       );
     } catch (_) {
@@ -187,7 +169,7 @@ class SkinOnDeviceAnalyzer {
       final detectionOutput = await _detectionRuntime!.run(prepared.input);
       final detectionCandidates = _decodeCandidates(
         detectionOutput[0],
-        classCount: 3,
+        classCount: 5,
         coefficientCount: 0,
         confidenceThreshold: _detectionConfidenceThreshold,
       );
@@ -223,65 +205,9 @@ class SkinOnDeviceAnalyzer {
         }
       }
 
-      final rednessOutput = await _rednessRuntime!.run(prepared.input);
-      final rednessResult = _decodeSegmentation(
-        prediction: rednessOutput[0],
-        prototypes: rednessOutput[1],
-        prepared: prepared,
-      );
-      if (rednessResult.area > 0) {
-        confidences['Redness'] = rednessResult.maxConfidence;
-        for (final box in rednessResult.boxes) {
-          final fullX1 = ((paddedCrop.paddedX1 + box.x1) / oriented.width).clamp(0.0, 1.0);
-          final fullY1 = ((paddedCrop.paddedY1 + box.y1) / oriented.height).clamp(0.0, 1.0);
-          final fullX2 = ((paddedCrop.paddedX1 + box.x2) / oriented.width).clamp(0.0, 1.0);
-          final fullY2 = ((paddedCrop.paddedY1 + box.y2) / oriented.height).clamp(0.0, 1.0);
-          if (fullX2 > fullX1 && fullY2 > fullY1) {
-            visualBoxes.add(
-              SkinVisualBox(
-                label: 'Redness',
-                score: rednessResult.maxConfidence,
-                normalizedRect: Rect.fromLTRB(fullX1, fullY1, fullX2, fullY2),
-              ),
-            );
-          }
-        }
-      }
-
-      final wrinkleOutput = await _wrinkleRuntime!.run(prepared.input);
-      final wrinkleResult = _decodeSegmentation(
-        prediction: wrinkleOutput[0],
-        prototypes: wrinkleOutput[1],
-        prepared: prepared,
-      );
-      if (wrinkleResult.area > 0) {
-        confidences['Wrinkle'] = wrinkleResult.maxConfidence;
-        for (final box in wrinkleResult.boxes) {
-          final fullX1 = ((paddedCrop.paddedX1 + box.x1) / oriented.width).clamp(0.0, 1.0);
-          final fullY1 = ((paddedCrop.paddedY1 + box.y1) / oriented.height).clamp(0.0, 1.0);
-          final fullX2 = ((paddedCrop.paddedX1 + box.x2) / oriented.width).clamp(0.0, 1.0);
-          final fullY2 = ((paddedCrop.paddedY1 + box.y2) / oriented.height).clamp(0.0, 1.0);
-          if (fullX2 > fullX1 && fullY2 > fullY1) {
-            visualBoxes.add(
-              SkinVisualBox(
-                label: 'Wrinkle',
-                score: wrinkleResult.maxConfidence,
-                normalizedRect: Rect.fromLTRB(fullX1, fullY1, fullX2, fullY2),
-              ),
-            );
-          }
-        }
-      }
-
-      final segmentationAreas = <String, double>{
-        'Redness': rednessResult.area,
-        'Wrinkle': wrinkleResult.area,
-      };
       final visualFindings = <String>[
         for (final name in _detectionNames)
           if ((detectionCounts[name] ?? 0) > 0) name,
-        if (rednessResult.area > 0) 'Redness',
-        if (wrinkleResult.area > 0) 'Wrinkle',
       ];
 
       final result = SkinAnalysis(
@@ -302,7 +228,7 @@ class SkinOnDeviceAnalyzer {
         modelConnected: true,
         isDemo: false,
         detectionCounts: detectionCounts,
-        segmentationAreas: segmentationAreas,
+        segmentationAreas: const {},
         classConfidences: confidences,
         modelVersion: _modelVersion,
         faceRect: normFaceRect,
@@ -542,113 +468,6 @@ class SkinOnDeviceAnalyzer {
     return _CropBox(x1, y1, x2, y2);
   }
 
-  _SegmentationResult _decodeSegmentation({
-    required Object prediction,
-    required Object prototypes,
-    required _PreparedInput prepared,
-  }) {
-    final candidates = _decodeCandidates(
-      prediction,
-      classCount: 1,
-      coefficientCount: _maskChannels,
-      confidenceThreshold: _segmentationConfidenceThreshold,
-    );
-    final kept = _nonMaximumSuppression(candidates);
-    if (kept.isEmpty) return const _SegmentationResult(0, 0);
-
-    final protoBatch = prototypes as List;
-    if (protoBatch.length != 1) {
-      throw StateError('Batch prototype segmentation tidak sesuai.');
-    }
-    final protoChannels = protoBatch[0] as List;
-    if (protoChannels.length != _maskChannels) {
-      throw StateError('Jumlah prototype mask tidak sesuai.');
-    }
-
-    final unionMask = Uint8List(prepared.sourceWidth * prepared.sourceHeight);
-    var maxConfidence = 0.0;
-    final validBoxes = <_CropBox>[];
-
-    for (final candidate in kept) {
-      final box = _toCropBox(candidate, prepared);
-      if (box == null) continue;
-      final minX = box.x1.floor().clamp(0, prepared.sourceWidth - 1).toInt();
-      final minY = box.y1.floor().clamp(0, prepared.sourceHeight - 1).toInt();
-      final maxX = box.x2.ceil().clamp(minX + 1, prepared.sourceWidth).toInt();
-      final maxY = box.y2.ceil().clamp(minY + 1, prepared.sourceHeight).toInt();
-      final instanceMask = <int>[];
-
-      // Decode the mask coefficients against the 32x160x160 prototype tensor.
-      final logits = Float32List(_maskSize * _maskSize);
-      for (var py = 0; py < _maskSize; py++) {
-        for (var px = 0; px < _maskSize; px++) {
-          var value = 0.0;
-          for (var channel = 0; channel < _maskChannels; channel++) {
-            final plane = protoChannels[channel] as List;
-            final row = plane[py] as List;
-            value += candidate.coefficients[channel] *
-                (row[px] as num).toDouble();
-          }
-          logits[py * _maskSize + px] = value;
-        }
-      }
-
-      var instanceArea = 0;
-      for (var y = minY; y < maxY; y++) {
-        final protoY = ((y + 0.5) * prepared.scale + prepared.top) /
-                _inputSize *
-                _maskSize -
-            0.5;
-        for (var x = minX; x < maxX; x++) {
-          final protoX = ((x + 0.5) * prepared.scale + prepared.left) /
-                  _inputSize *
-                  _maskSize -
-              0.5;
-          if (_sampleBilinear(logits, protoX, protoY) > 0) {
-            final offset = y * prepared.sourceWidth + x;
-            instanceMask.add(offset);
-            instanceArea++;
-          }
-        }
-      }
-
-      // Matches the original Python post-processing minimum mask-pixel guard.
-      if (instanceArea < 20) continue;
-      validBoxes.add(box);
-      maxConfidence = math.max(maxConfidence, candidate.score).toDouble();
-      for (final offset in instanceMask) {
-        unionMask[offset] = 1;
-      }
-    }
-
-    var unionArea = 0;
-    for (final pixel in unionMask) {
-      if (pixel != 0) unionArea++;
-    }
-    final faceArea = prepared.sourceWidth * prepared.sourceHeight;
-    return _SegmentationResult(
-      faceArea == 0 ? 0 : unionArea / faceArea,
-      maxConfidence,
-      validBoxes,
-    );
-  }
-
-  double _sampleBilinear(Float32List data, double x, double y) {
-    final clampedX = x.clamp(0.0, (_maskSize - 1).toDouble()).toDouble();
-    final clampedY = y.clamp(0.0, (_maskSize - 1).toDouble()).toDouble();
-    final x0 = clampedX.floor();
-    final y0 = clampedY.floor();
-    final x1 = math.min(x0 + 1, _maskSize - 1).toInt();
-    final y1 = math.min(y0 + 1, _maskSize - 1).toInt();
-    final dx = clampedX - x0;
-    final dy = clampedY - y0;
-    final top = data[y0 * _maskSize + x0] * (1 - dx) +
-        data[y0 * _maskSize + x1] * dx;
-    final bottom = data[y1 * _maskSize + x0] * (1 - dx) +
-        data[y1 * _maskSize + x1] * dx;
-    return top * (1 - dy) + bottom * dy;
-  }
-
   String _readableError(Object error) {
     final message = error.toString();
     return message.startsWith('Exception: ')
@@ -657,17 +476,9 @@ class SkinOnDeviceAnalyzer {
   }
 
   Future<void> _closeRuntimes() async {
-    final runtimes = <_YoloRuntime?>[
-      _detectionRuntime,
-      _rednessRuntime,
-      _wrinkleRuntime,
-    ];
+    final runtime = _detectionRuntime;
     _detectionRuntime = null;
-    _rednessRuntime = null;
-    _wrinkleRuntime = null;
-    for (final runtime in runtimes) {
-      await runtime?.close();
-    }
+    await runtime?.close();
   }
 
   Future<void> dispose() async {
@@ -730,13 +541,6 @@ class _YoloCandidate {
   final double score;
   final int classId;
   final List<double> coefficients;
-}
-
-class _SegmentationResult {
-  const _SegmentationResult(this.area, this.maxConfidence, [this.boxes = const []]);
-  final double area;
-  final double maxConfidence;
-  final List<_CropBox> boxes;
 }
 
 class _PaddedFaceCrop {

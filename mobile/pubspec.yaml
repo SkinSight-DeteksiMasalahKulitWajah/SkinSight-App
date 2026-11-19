@@ -33,6 +33,7 @@ flutter:
   assets:
     - assets/photos/
     - assets/3d/
+    - assets/ml_models/all_conditions_detect_float32.tflite
     - assets/ml_models/acne_pih_darkcircle_float32.tflite
     - assets/ml_models/redness_float32.tflite
     - assets/ml_models/wrinkle_float32.tflite

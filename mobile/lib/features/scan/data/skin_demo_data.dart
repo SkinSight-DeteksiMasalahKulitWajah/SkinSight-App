@@ -13,11 +13,10 @@ abstract final class SkinDemoData {
       'Acne': 4 + variation,
       'PIH': 3 + (variation == 2 ? 1 : 0),
       'Dark Circle': 2,
+      'Redness': 2 + variation,
+      'Wrinkle': 0,
     };
-    final areas = <String, double>{
-      'Redness': 0.09 + variation * 0.01,
-      'Wrinkle': 0.00,
-    };
+    final areas = const <String, double>{};
     return SkinAnalysis(
       id: 'demo-${DateTime.now().microsecondsSinceEpoch}',
       analyzedAt: DateTime.now(),
