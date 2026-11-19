@@ -113,15 +113,12 @@ class _SkinResultPageState extends State<SkinResultPage> {
           (
             label: findingLabels[c] ?? c,
             value: _amount(c, a),
-            fraction: a.classConfidences[c] ??
-                (a.segmentationAreas[c] ?? .3).clamp(0.0, 1.0),
+            fraction: (a.classConfidences[c] ?? 0.3).clamp(0.0, 1.0),
           ),
       ];
 
   String _amount(String name, SkinAnalysis a) =>
-      SkinJourneyStore.detectionClasses.contains(name)
-          ? '${a.detectionCounts[name] ?? 0} titik'
-          : '${((a.segmentationAreas[name] ?? 0) * 100).toStringAsFixed(0)}%';
+      '${a.detectionCounts[name] ?? 0} titik';
 
   /// Navigasi ke halaman DETAIL edukasi (bukan halaman/dialog yang sama)
   /// dengan membawa data hasil scan yang sedang dibuka.
@@ -252,7 +249,7 @@ class _SkinResultPageState extends State<SkinResultPage> {
                               key: _findingsKey,
                               title: 'Temuan visual',
                               subtitle:
-                                  'Ringkasan temuan per kelas · jumlah deteksi, luas mask, dan confidence.',
+                                  'Ringkasan temuan per kelas · jumlah deteksi dan confidence.',
                             ),
                             const SizedBox(height: 12),
                             if (hasData)
@@ -470,10 +467,7 @@ class _SkinResultPageState extends State<SkinResultPage> {
 
   // Satu panel ringkas; setiap kelas satu BARIS, bukan kartu tinggi 156 px.
   Widget _findingRow(String name, SkinAnalysis a) {
-    final detection = SkinJourneyStore.detectionClasses.contains(name);
-    final amount = detection
-        ? '${a.detectionCounts[name] ?? 0}'
-        : '${((a.segmentationAreas[name] ?? 0) * 100).toStringAsFixed(0)}%';
+    final amount = '${a.detectionCounts[name] ?? 0}';
     final confidence = a.classConfidences[name];
     final color = findingColor(name);
     return Padding(
@@ -521,8 +515,8 @@ class _SkinResultPageState extends State<SkinResultPage> {
                   height: 1.1,
                   fontWeight: FontWeight.w800,
                   color: SkinTokens.ink)),
-          Text(detection ? 'temuan' : 'luas mask',
-              style: const TextStyle(
+          const Text('temuan',
+              style: TextStyle(
                   color: SkinTokens.muted,
                   fontSize: 10.5,
                   fontWeight: FontWeight.w600)),
