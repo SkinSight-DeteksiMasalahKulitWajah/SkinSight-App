@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:skinsight/main.dart';
-import 'package:skinsight/models/font_settings.dart';
+import 'package:skinsight/core/settings/font_settings.dart';
 
 import 'test_helpers.dart';
 

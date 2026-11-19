@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:skinsight/core/app_assets.dart';
-import 'package:skinsight/pages/onboarding/onboarding_hero.dart';
-import 'package:skinsight/theme/skin_theme.dart';
+import 'package:skinsight/features/onboarding/presentation/widgets/onboarding_hero.dart';
+import 'package:skinsight/core/theme/skin_theme.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

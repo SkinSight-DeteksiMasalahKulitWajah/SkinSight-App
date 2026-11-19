@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:skinsight/data/auth_service.dart';
+import 'package:skinsight/features/auth/data/auth_service.dart';
 
 void main() {
   test('FakeAuthService signUp dan signIn berhasil', () async {

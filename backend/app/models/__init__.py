@@ -4,6 +4,7 @@ from app.models.quiz import QuizSubmission
 from app.models.scan import ScanRecord
 from app.models.journey import SkinJourney, JourneyCheckin
 from app.models.catalog import Ingredient, Product, product_ingredients
+from app.models.education import Article
 
 __all__ = [
     "Base",
@@ -15,4 +16,5 @@ __all__ = [
     "Ingredient",
     "Product",
     "product_ingredients",
+    "Article",
 ]

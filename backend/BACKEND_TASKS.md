@@ -82,7 +82,7 @@ Sebagai Backend Developer, tugas utama Anda adalah:
   - Pemetaan rekomendasi bahan aktif berbasis kondisi dominan:
     - Masalah Jerawat/Minyak tinggi $\rightarrow$ Rekomendasi *Niacinamide*, *Salicylic Acid*, *Tea Tree*.
     - Masalah Kemerahan/Skin barrier $\rightarrow$ Rekomendasi *Centella Asiatica*, *Ceramide*, *Hyaluronic Acid*.
-- [ ] **4.2. Filter Katalog Skincare Berdasarkan Database & Budget**
+- [x] **4.2. Filter Katalog Skincare Berdasarkan Database & Budget**
   - Query produk skincare dari database berdasarkan hasil analisis kulit.
   - Filter rentang harga (*budget filter*: `< Rp 50.000`, `Rp 50.000 - Rp 150.000`, `> Rp 150.000`).
 
@@ -96,24 +96,37 @@ Sebagai Backend Developer, tugas utama Anda adalah:
 
 #### B. Pemindaian & Analisis Kulit (`/api/v1/scan`) — *Endpoint Utama*
 - [x] `POST /api/v1/scan/analyze` : Menerima multipart image, memproses inferensi (mock/ML), dan mengembalikan metrik kesehatan kulit serta rekomendasi produk.
-- [ ] `GET /api/v1/scan/history` : Mengambil daftar riwayat scan pengguna (paginasi).
-- [ ] `GET /api/v1/scan/history/{scan_id}` : Mengambil detail satu hasil scan.
+- [x] `GET /api/v1/scan/history` : Mengambil daftar riwayat scan pengguna (paginasi).
+- [x] `GET /api/v1/scan/history/{scan_id}` : Mengambil detail satu hasil scan.
 
 #### C. Autentikasi & Profil Pengguna (`/api/v1/users`)
-- [ ] `POST /api/v1/users/sync` : Sinkronisasi data user dari Supabase Auth ke tabel `profiles`.
-- [ ] `GET /api/v1/users/me` : Ambil profil pengguna beserta preferensi kulit.
-- [ ] `PUT /api/v1/users/me` : Update data profil dan preferensi.
+- [x] `POST /api/v1/users/sync` : Sinkronisasi data user dari Supabase Auth ke tabel `profiles`.
+- [x] `GET /api/v1/users/me` : Ambil profil pengguna beserta preferensi kulit.
+- [x] `PUT /api/v1/users/me` : Update data profil dan preferensi.
 
 #### D. Kuis Gaya Hidup (`/api/v1/quiz`)
-- [ ] `POST /api/v1/quiz/submit` : Simpan hasil kuis kondisi kulit awal pengguna.
+- [x] `POST /api/v1/quiz/submit` : Simpan hasil kuis kondisi kulit awal pengguna.
 
 #### E. Perjalanan Kulit / Journey (`/api/v1/journeys`)
-- [ ] `GET /api/v1/journeys` : Ambil status journey aktif pengguna.
-- [ ] `POST /api/v1/journeys/checkin` : Simpan check-in progres kulit berkala.
+- [x] `GET /api/v1/journeys` : Ambil status journey aktif pengguna.
+- [x] `POST /api/v1/journeys/checkin` : Simpan check-in progres kulit berkala.
 
 #### F. Katalog Produk & Edukasi (`/api/v1/catalog` & `/api/v1/education`)
-- [ ] `GET /api/v1/catalog/products` : Filter produk berdasarkan tipe kulit, bahan aktif, dan batas harga.
-- [ ] `GET /api/v1/education/articles` : Mengambil artikel dan tips perawatan kulit harian.
+- [x] `GET /api/v1/catalog/products` : Filter produk berdasarkan tipe kulit, bahan aktif, dan batas harga.
+- [x] `GET /api/v1/education/articles` : Mengambil artikel dan tips perawatan kulit harian.
+
+#### Endpoint tambahan (CRUD lengkap)
+- [x] Scan: `POST /scan/records` (simpan hasil on-device, idempotent), `PATCH|DELETE /scan/history/{id}`, `DELETE /scan/history`.
+- [x] Users: `DELETE /users/me`.
+- [x] Quiz: `GET /quiz`, `GET /quiz/latest`, `DELETE /quiz/{id}`.
+- [x] Journeys: `POST /journeys`, `GET|PUT|DELETE /journeys/{id}` (soft/permanent), `POST /journeys/{id}/restore`, `PUT|DELETE /journeys/checkin/{id}`.
+- [x] Catalog: `GET /catalog/recommendations`, `GET /catalog/ingredients`; admin CRUD produk & bahan aktif (`ADMIN_EMAILS` di `.env`).
+- [x] Education: `GET /education/articles/{uuid|slug}`; admin CRUD artikel.
+- [x] Autentikasi: verifikasi JWT Supabase (`app/core/security.py`) pada semua endpoint data pengguna.
+- [x] Sinkron mobile: profil, riwayat scan, kuesioner, journey & check-in (`mobile/lib/core/api`).
+
+> Catatan: aplikasi mobile menjalankan inferensi on-device; hasilnya disimpan lewat `POST /scan/records`.
+> Foto disimpan di Supabase Storage (jalankan `supabase_storage_setup.sql`). Seed data contoh: `python -m scripts.seed`.
 
 ---
 

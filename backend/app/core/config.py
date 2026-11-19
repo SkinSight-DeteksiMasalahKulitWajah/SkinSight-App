@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     SUPABASE_SERVICE_ROLE_KEY: str = ""
     SUPABASE_JWT_SECRET: str = ""
 
+    # Email admin (dipisah koma) yang boleh mengelola katalog & artikel
+    ADMIN_EMAILS: str = ""
+
     # ML Model Configuration
     ML_MODEL_PATH: str = "models/skin_classifier.tflite"
     USE_MOCK_ML: bool = True

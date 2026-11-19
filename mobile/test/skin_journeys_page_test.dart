@@ -2,8 +2,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:skinsight/data/skin_journey_store.dart';
-import 'package:skinsight/pages/skin_journeys_page.dart';
+import 'package:skinsight/features/journeys/data/skin_journey_store.dart';
+import 'package:skinsight/features/journeys/presentation/skin_journeys_page.dart';
 
 void main() {
   final store = SkinJourneyStore.instance;

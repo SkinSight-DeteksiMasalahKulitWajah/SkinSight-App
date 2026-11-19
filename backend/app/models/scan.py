@@ -43,6 +43,9 @@ class ScanRecord(Base):
     model_connected: Mapped[bool] = mapped_column(Boolean, default=True)
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # Data tambahan hasil on-device: visual_boxes, face_rect, image_width/height, quality, dll.
+    meta: Mapped[dict] = mapped_column(JSONB, default=dict, server_default="{}")
+
     analyzed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
