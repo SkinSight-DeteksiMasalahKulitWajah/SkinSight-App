@@ -43,12 +43,12 @@ class Settings(BaseSettings):
     ADMIN_EMAILS: str = ""
 
     # ML Model Configuration
-    ML_MODEL_PATH: str = "models/skin_classifier.tflite"
-    USE_MOCK_ML: bool = True
+    ML_MODEL_PATH: str = "models/all_conditions_detect_float32.tflite"
+    USE_MOCK_ML: bool = False
 
     # LLM (Gemini API) Configuration
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-2.0-flash"
+    GEMINI_MODEL: str = "gemini-3.5-flash"
 
     model_config = SettingsConfigDict(
         env_file=".env",

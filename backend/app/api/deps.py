@@ -18,7 +18,14 @@ __all__ = [
     "get_current_profile",
     "get_optional_profile",
     "require_admin",
+    "is_placeholder_name",
 ]
+
+_PLACEHOLDER_NAMES = {"", "pengguna skinsight", "alea kucing"}
+
+
+def is_placeholder_name(name: Optional[str]) -> bool:
+    return (name or "").strip().lower() in _PLACEHOLDER_NAMES
 
 
 def _unauthorized(detail: str) -> HTTPException:
@@ -63,6 +70,15 @@ async def get_current_profile(
     uid = uuid.UUID(user.id)
     profile = await db.get(Profile, uid)
     if profile is not None:
+        updated = False
+        if is_placeholder_name(profile.full_name) and user.name and not is_placeholder_name(user.name):
+            profile.full_name = user.name
+            updated = True
+        if not profile.avatar_url and user.avatar_url:
+            profile.avatar_url = user.avatar_url
+            updated = True
+        if updated:
+            await db.flush()
         return profile
 
     if not user.email:
@@ -71,9 +87,18 @@ async def get_current_profile(
     if existing is not None:
         # Profil dibuat manual sebelum sinkron: adopsi id dari Supabase Auth.
         existing.id = uid
+        if is_placeholder_name(existing.full_name) and user.name and not is_placeholder_name(user.name):
+            existing.full_name = user.name
+        if not existing.avatar_url and user.avatar_url:
+            existing.avatar_url = user.avatar_url
         profile = existing
     else:
-        profile = Profile(id=uid, email=user.email, full_name=user.name)
+        profile = Profile(
+            id=uid,
+            email=user.email,
+            full_name=user.name,
+            avatar_url=user.avatar_url,
+        )
         db.add(profile)
     await db.flush()
     return profile

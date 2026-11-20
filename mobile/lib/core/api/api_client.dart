@@ -5,12 +5,30 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Alamat backend FastAPI. Ganti saat build: `--dart-define=API_BASE_URL=https://...`.
-/// Default `10.0.2.2` = localhost komputer dari emulator Android.
-const apiBaseUrl = String.fromEnvironment(
+/// Menormalkan `API_BASE_URL` agar selalu berakhiran `/api/v1` (tanpa duplikasi).
+/// Menerima `http://10.0.2.2:8000` maupun `http://10.0.2.2:8000/api/v1`.
+String normalizeApiBaseUrl(String raw) {
+  var trimmed = raw.trim();
+  while (trimmed.endsWith('/')) {
+    trimmed = trimmed.substring(0, trimmed.length - 1);
+  }
+  if (trimmed.isEmpty) {
+    return 'http://10.0.2.2:8000/api/v1';
+  }
+  if (trimmed.endsWith('/api/v1')) {
+    return trimmed;
+  }
+  return '$trimmed/api/v1';
+}
+
+const _rawApiBaseUrl = String.fromEnvironment(
   'API_BASE_URL',
   defaultValue: 'http://10.0.2.2:8000/api/v1',
 );
+
+/// Alamat backend FastAPI ternormalisasi (`/api/v1`).
+/// Ganti saat build: `--dart-define=API_BASE_URL=http://<IP-PC>:8000` atau `https://...`.
+final String apiBaseUrl = normalizeApiBaseUrl(_rawApiBaseUrl);
 
 class ApiException implements Exception {
   const ApiException(this.statusCode, this.message);
@@ -27,7 +45,7 @@ class ApiException implements Exception {
 class ApiClient {
   ApiClient({http.Client? client, String? baseUrl, String? Function()? tokenProvider})
       : _client = client ?? http.Client(),
-        _baseUrl = baseUrl ?? apiBaseUrl,
+        _baseUrl = normalizeApiBaseUrl(baseUrl ?? apiBaseUrl),
         _tokenProvider = tokenProvider ?? _supabaseToken;
 
   static final instance = ApiClient();
@@ -36,7 +54,11 @@ class ApiClient {
   final String _baseUrl;
   final String? Function() _tokenProvider;
 
-  static const _timeout = Duration(seconds: 20);
+  static const _timeout = Duration(seconds: 8);
+
+  String get baseUrl => _baseUrl;
+
+  String? get accessToken => _tokenProvider();
 
   static String? _supabaseToken() {
     try {
@@ -49,8 +71,9 @@ class ApiClient {
   bool get isAvailable => _tokenProvider() != null;
 
   Uri _uri(String path, [Map<String, dynamic>? query]) {
+    final normalizedPath = path.startsWith('/') ? path : '/$path';
     final params = query?.map((k, v) => MapEntry(k, '$v'));
-    return Uri.parse('$_baseUrl$path').replace(queryParameters: params);
+    return Uri.parse('$_baseUrl$normalizedPath').replace(queryParameters: params);
   }
 
   Map<String, String> _headers({bool json = true}) {

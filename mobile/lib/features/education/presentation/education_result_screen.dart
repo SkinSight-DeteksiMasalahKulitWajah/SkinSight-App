@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import '../../../core/theme/skin_theme.dart';
 import '../../../shared/widgets/design_system/skin_ui.dart';
 import '../../../shared/widgets/skin_page_background.dart';
 import '../../../shared/widgets/skin_page_header.dart';
+import '../../history/data/skin_history_repository.dart';
 import '../../journeys/data/skin_journey_store.dart';
 import '../../scan/models/skin_analysis.dart';
 import '../data/recommendation_service.dart';
@@ -40,6 +42,16 @@ class _EducationResultScreenState extends State<EducationResultScreen> {
   @override
   void initState() {
     super.initState();
+    final cached = widget.analysis.llmRecommendation;
+    if (cached != null && cached.isNotEmpty) {
+      try {
+        _recommendation = RecommendationResult.fromJson(cached);
+        _loading = false;
+        return;
+      } on Object {
+        // Cache tidak valid; ambil ulang dari server.
+      }
+    }
     _fetchRecommendation();
   }
 
@@ -77,6 +89,15 @@ class _EducationResultScreenState extends State<EducationResultScreen> {
         scanData: scanData,
         quizAnswers: store.answers,
         checkinHistory: checkinHistory,
+      );
+
+      // Simpan hasil rekomendasi LLM ke riwayat scan Supabase agar tetap ada
+      // setelah user keluar lalu masuk kembali.
+      unawaited(
+        SkinHistoryRepository.instance.updateRecommendation(
+          analysis.id,
+          result.toJson(),
+        ),
       );
 
       if (!mounted) return;

@@ -77,6 +77,9 @@ class SkinAnalysis {
   /// Path foto di Supabase Storage (`<user_id>/<file>`), null bila belum diunggah.
   final String? imagePath;
 
+  /// Cache JSON hasil rekomendasi LLM terakhir untuk scan ini (disimpan di `meta`).
+  final Map<String, dynamic>? llmRecommendation;
+
   const SkinAnalysis({
     required this.id,
     required this.analyzedAt,
@@ -101,6 +104,7 @@ class SkinAnalysis {
     this.imageWidth,
     this.imageHeight,
     this.imagePath,
+    this.llmRecommendation,
   });
 
   SkinAnalysis copyWith({
@@ -110,6 +114,7 @@ class SkinAnalysis {
     int? imageWidth,
     int? imageHeight,
     String? imagePath,
+    Map<String, dynamic>? llmRecommendation,
   }) {
     return SkinAnalysis(
       id: id,
@@ -135,8 +140,25 @@ class SkinAnalysis {
       imageWidth: imageWidth ?? this.imageWidth,
       imageHeight: imageHeight ?? this.imageHeight,
       imagePath: imagePath ?? this.imagePath,
+      llmRecommendation: llmRecommendation ?? this.llmRecommendation,
     );
   }
+
+  Map<String, dynamic> buildMeta({String quality = 'unchecked'}) => {
+        'skin_type_confidence': skinTypeConfidence,
+        'quality': quality,
+        'image_width': imageWidth,
+        'image_height': imageHeight,
+        if (faceRect != null)
+          'face_rect': [
+            faceRect!.left,
+            faceRect!.top,
+            faceRect!.right,
+            faceRect!.bottom,
+          ],
+        'visual_boxes': [for (final b in visualBoxes) b.toJson()],
+        if (llmRecommendation != null) 'llm_recommendation': llmRecommendation,
+      };
 
   /// Payload untuk `POST /scan/records` di backend.
   Map<String, dynamic> toApiJson({String quality = 'unchecked'}) => {
@@ -157,26 +179,14 @@ class SkinAnalysis {
         'model_version': modelVersion,
         'model_connected': modelConnected,
         'is_demo': isDemo,
-        'meta': {
-          'skin_type_confidence': skinTypeConfidence,
-          'quality': quality,
-          'image_width': imageWidth,
-          'image_height': imageHeight,
-          if (faceRect != null)
-            'face_rect': [
-              faceRect!.left,
-              faceRect!.top,
-              faceRect!.right,
-              faceRect!.bottom,
-            ],
-          'visual_boxes': [for (final b in visualBoxes) b.toJson()],
-        },
+        'meta': buildMeta(quality: quality),
       };
 
   /// Membangun dari respons backend (`ScanRecordOut`); foto belum terunduh.
   factory SkinAnalysis.fromApiJson(Map<String, dynamic> json) {
     final meta = (json['meta'] as Map?)?.cast<String, dynamic>() ?? const {};
     final face = (meta['face_rect'] as List?)?.cast<num>();
+    final rawRec = meta['llm_recommendation'];
     return SkinAnalysis(
       id: json['id'] as String,
       analyzedAt: DateTime.parse(json['analyzed_at'] as String).toLocal(),
@@ -217,6 +227,8 @@ class SkinAnalysis {
       imageWidth: (meta['image_width'] as num?)?.toInt(),
       imageHeight: (meta['image_height'] as num?)?.toInt(),
       imagePath: json['image_url'] as String?,
+      llmRecommendation:
+          rawRec is Map ? Map<String, dynamic>.from(rawRec) : null,
     );
   }
 }

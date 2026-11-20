@@ -25,6 +25,35 @@ class AuthUser:
     id: str
     email: Optional[str]
     name: Optional[str]
+    avatar_url: Optional[str] = None
+
+
+def extract_display_name(meta: dict, email: Optional[str] = None) -> Optional[str]:
+    """Ambil nama tampilan asli dari metadata OAuth Google / Supabase Auth."""
+    if isinstance(meta, dict):
+        for key in ("full_name", "name", "preferred_username", "user_name"):
+            val = meta.get(key)
+            if isinstance(val, str) and val.strip():
+                return val.strip()
+        given = (meta.get("given_name") or "").strip() if isinstance(meta.get("given_name"), str) else ""
+        family = (meta.get("family_name") or "").strip() if isinstance(meta.get("family_name"), str) else ""
+        combined = f"{given} {family}".strip()
+        if combined:
+            return combined
+    if email and "@" in email:
+        local = email.split("@", 1)[0].strip()
+        if local:
+            return local
+    return None
+
+
+def extract_avatar_url(meta: dict) -> Optional[str]:
+    if isinstance(meta, dict):
+        for key in ("avatar_url", "picture"):
+            val = meta.get(key)
+            if isinstance(val, str) and val.strip():
+                return val.strip()
+    return None
 
 
 @lru_cache(maxsize=1)
@@ -37,10 +66,12 @@ def _user_from_claims(claims: dict) -> AuthUser:
     if not sub:
         raise AuthError("Token tidak memiliki subject.")
     meta = claims.get("user_metadata") or {}
+    email = claims.get("email")
     return AuthUser(
         id=sub,
-        email=claims.get("email"),
-        name=meta.get("name") or meta.get("full_name"),
+        email=email,
+        name=extract_display_name(meta, email),
+        avatar_url=extract_avatar_url(meta),
     )
 
 
@@ -56,7 +87,13 @@ async def _verify_remote(token: str) -> AuthUser:
         raise AuthError("Token tidak valid atau kedaluwarsa.")
     data = resp.json()
     meta = data.get("user_metadata") or {}
-    return AuthUser(id=data["id"], email=data.get("email"), name=meta.get("name") or meta.get("full_name"))
+    email = data.get("email")
+    return AuthUser(
+        id=data["id"],
+        email=email,
+        name=extract_display_name(meta, email),
+        avatar_url=extract_avatar_url(meta),
+    )
 
 
 async def verify_token(token: str) -> AuthUser:

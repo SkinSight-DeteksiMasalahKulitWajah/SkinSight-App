@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, 
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_profile, get_db, get_optional_profile
+from app.api.deps import get_current_profile, get_current_user_token, get_db, get_optional_profile
 from app.core.utils import as_utc
 from app.models.profile import Profile
 from app.models.scan import ScanRecord
@@ -17,9 +17,11 @@ from app.schemas.scan import (
     ScanRecordCreate,
     ScanRecordOut,
     ScanRecordUpdate,
+    SignedImageUrlResponse,
 )
 from app.services.ml_service import ml_service
 from app.services.recommendation import find_recommended_products
+from app.services.storage_service import storage_service
 
 router = APIRouter()
 
@@ -49,6 +51,7 @@ async def analyze_skin(
     budget: Optional[str] = Query(default=None, pattern="^(low|mid|high)$", description="Filter budget produk"),
     save: bool = Query(default=True, description="Simpan ke riwayat bila user login"),
     profile: Optional[Profile] = Depends(get_optional_profile),
+    user_token: Optional[str] = Depends(get_current_user_token),
     db: AsyncSession = Depends(get_db),
 ) -> ScanAnalysisResponse:
     if file.content_type not in ALLOWED_MIME_TYPES:
@@ -83,10 +86,26 @@ async def analyze_skin(
         ]
 
     if profile is not None and save:
+        image_path = await storage_service.upload_scan_photo(
+            user_id=str(profile.id),
+            scan_id=result.id,
+            content=content,
+            content_type=file.content_type or "image/jpeg",
+            user_token=user_token,
+        )
+        if image_path:
+            result.image_url = image_path
+            result.signed_image_url = await storage_service.create_signed_url(
+                image_path, user_token=user_token
+            )
+
+        record_meta = dict(result.meta or {})
+        record_meta["skin_type_confidence"] = result.skin_type_confidence
         db.add(
             ScanRecord(
                 id=result.id,
                 user_id=profile.id,
+                image_url=image_path,
                 analyzed_at=as_utc(result.analyzed_at),
                 score=result.score,
                 title=result.title,
@@ -104,7 +123,7 @@ async def analyze_skin(
                 model_version=result.model_version,
                 model_connected=result.model_connected,
                 is_demo=result.is_demo,
-                meta={"skin_type_confidence": result.skin_type_confidence},
+                meta=record_meta,
             )
         )
 
@@ -181,6 +200,34 @@ async def get_history_item(
     return await _owned_record(db, scan_id, profile)
 
 
+@router.get(
+    "/history/{scan_id}/image-url",
+    response_model=SignedImageUrlResponse,
+    summary="Signed URL sementara untuk foto scan privat",
+)
+async def get_scan_signed_image_url(
+    scan_id: str,
+    expires_in: int = Query(default=3600, ge=60, le=86400, description="Masa berlaku signed URL dalam detik"),
+    profile: Profile = Depends(get_current_profile),
+    user_token: Optional[str] = Depends(get_current_user_token),
+    db: AsyncSession = Depends(get_db),
+) -> SignedImageUrlResponse:
+    record = await _owned_record(db, scan_id, profile)
+    if not record.image_url:
+        raise HTTPException(status_code=404, detail="Scan ini belum memiliki foto tersimpan.")
+    signed = await storage_service.create_signed_url(
+        record.image_url, expires_in=expires_in, user_token=user_token
+    )
+    if not signed:
+        raise HTTPException(status_code=502, detail="Gagal membuat signed URL dari Supabase Storage.")
+    return SignedImageUrlResponse(
+        scan_id=record.id,
+        image_url=record.image_url,
+        signed_url=signed,
+        expires_in=expires_in,
+    )
+
+
 @router.patch("/history/{scan_id}", response_model=ScanRecordOut, summary="Update judul / foto / meta scan")
 async def update_history_item(
     scan_id: str,
@@ -200,17 +247,26 @@ async def update_history_item(
 async def delete_history_item(
     scan_id: str,
     profile: Profile = Depends(get_current_profile),
+    user_token: Optional[str] = Depends(get_current_user_token),
     db: AsyncSession = Depends(get_db),
 ) -> MessageResponse:
     record = await _owned_record(db, scan_id, profile)
+    image_path = record.image_url
     await db.delete(record)
+    if image_path:
+        await storage_service.delete_photo(image_path, user_token=user_token)
     return MessageResponse(message="Data scan dihapus.")
 
 
 @router.delete("/history", response_model=MessageResponse, summary="Hapus seluruh riwayat scan")
 async def clear_history(
     profile: Profile = Depends(get_current_profile),
+    user_token: Optional[str] = Depends(get_current_user_token),
     db: AsyncSession = Depends(get_db),
 ) -> MessageResponse:
+    rows = (await db.execute(select(ScanRecord.image_url).where(ScanRecord.user_id == profile.id))).scalars().all()
     await db.execute(delete(ScanRecord).where(ScanRecord.user_id == profile.id))
+    for path in rows:
+        if path:
+            await storage_service.delete_photo(path, user_token=user_token)
     return MessageResponse(message="Seluruh riwayat scan dihapus.")

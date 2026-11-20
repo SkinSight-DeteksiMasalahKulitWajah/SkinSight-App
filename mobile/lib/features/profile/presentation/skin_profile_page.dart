@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
-import'../../auth/data/auth_service.dart';
+import '../../../core/api/cloud_sync.dart';
+import '../../auth/data/auth_service.dart';
 import'../../journeys/data/skin_journey_store.dart';
 import'../../auth/models/auth_session.dart';
 import'../models/profile_data.dart';
@@ -680,6 +681,10 @@ Future<void> _confirmLogout(BuildContext context) async {
   );
 
   if (confirmed == true && context.mounted) {
+    // Pastikan semua perubahan lokal (profil, scan, journey, check-in) selesai
+    // dikirim ke Supabase sebelum token sesi dihapus.
+    await CloudSync.instance.flushPending();
+    if (!context.mounted) return;
     try {
       await context.read<AuthService>().signOut();
     } catch (_) {

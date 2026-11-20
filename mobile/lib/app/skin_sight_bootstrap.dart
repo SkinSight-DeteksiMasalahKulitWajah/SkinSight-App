@@ -5,6 +5,7 @@ import '../core/api/cloud_sync.dart';
 import '../core/settings/font_settings.dart';
 import '../features/history/data/skin_history_repository.dart';
 import '../features/journeys/data/skin_journey_store.dart';
+import '../features/notifications/data/skin_notification_center.dart';
 import '../features/profile/models/profile_data.dart';
 import '../core/theme/skin_theme.dart';
 import '../features/auth/models/auth_session.dart';
@@ -40,12 +41,13 @@ class _SkinSightBootstrapState extends State<_SkinSightBootstrap> {
         _initializeSupabase(),
       ]);
 
-      // Tarik data pengguna (profil, riwayat scan, journey) dari backend setelah login.
+      // Tarik data pengguna (profil, riwayat scan, journey, notifikasi) dari server/Supabase.
       CloudSync.instance
         ..attach([
           ProfileData.syncTarget,
           SkinHistoryRepository.instance,
           SkinJourneyStore.instance,
+          SkinNotificationCenter.instance,
         ])
         ..start();
 

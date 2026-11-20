@@ -3,7 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, Body, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_profile, get_db
+from app.api.deps import get_current_profile, get_db, is_placeholder_name
 from app.models.profile import Profile
 from app.schemas.common import MessageResponse
 from app.schemas.user import ProfileOut, ProfileUpdate, UserSyncRequest
@@ -17,9 +17,17 @@ async def sync_user(
     profile: Profile = Depends(get_current_profile),
     db: AsyncSession = Depends(get_db),
 ) -> Profile:
-    """Idempotent: membuat profil bila belum ada, mengisi nama jika masih kosong."""
-    if body and body.full_name and not profile.full_name:
-        profile.full_name = body.full_name.strip()
+    """Idempotent: membuat profil bila belum ada, mengisi nama/avatar asli bila masih kosong atau placeholder."""
+    changed = False
+    if body and body.full_name and body.full_name.strip():
+        candidate = body.full_name.strip()
+        if is_placeholder_name(profile.full_name) and not is_placeholder_name(candidate):
+            profile.full_name = candidate
+            changed = True
+    if body and body.avatar_url and body.avatar_url.strip() and not profile.avatar_url:
+        profile.avatar_url = body.avatar_url.strip()
+        changed = True
+    if changed:
         await db.flush()
     await db.refresh(profile)
     return profile

@@ -1,0 +1,50 @@
+name: Backend CI
+
+on:
+  push:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+
+jobs:
+  test-backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify Python syntax & OpenAPI load
+        env:
+          DATABASE_URL: postgresql+asyncpg://postgres:password@localhost:5432/skinsight
+          USE_MOCK_ML: "true"
+        run: |
+          python -m py_compile app/main.py app/api/api.py app/core/config.py app/core/database.py app/services/ml_service.py app/services/llm_service.py app/services/storage_service.py
+          python -c "from app.main import app; assert '/api/v1/health' in app.openapi()['paths']; assert '/api/v1/recommendation/generate' in app.openapi()['paths']"
+
+      - name: Run unit tests (offline-safe)
+        env:
+          DATABASE_URL: postgresql+asyncpg://postgres:password@localhost:5432/skinsight
+          USE_MOCK_ML: "false"
+          ML_MODEL_PATH: ../mobile/assets/ml_models/all_conditions_detect_float32.tflite
+        run: |
+          pytest tests/test_health.py tests/test_database_url.py tests/test_ml_service.py tests/test_recommendation.py tests/test_storage_service.py -v

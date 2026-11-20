@@ -8,8 +8,13 @@ httpx>=0.27.0
 pytest>=8.1.0
 pytest-asyncio>=0.23.5
 
-# LLM - Google Gemini
-google-generativeai>=0.8.0
+# LLM - Google Gemini / Vertex AI (SDK terbaru + fallback legacy)
+google-genai>=1.0.0
+
+# Machine Learning - LiteRT / TFLite YOLO11 Inference
+ai-edge-litert>=2.1.0
+numpy>=1.26.0
+pillow>=10.0.0
 
 # Database & ORM
 sqlalchemy>=2.0.28,<3.0.0

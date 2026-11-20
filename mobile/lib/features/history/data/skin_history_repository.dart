@@ -4,18 +4,28 @@ import 'package:flutter/foundation.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/cloud_storage.dart';
 import '../../../core/api/cloud_sync.dart';
+import '../../../core/api/supabase_direct.dart';
 import '../../scan/models/skin_analysis.dart';
 import '../../journeys/data/skin_journey_store.dart';
 
-/// Riwayat scan. Sumber kebenaran adalah database (tabel `scan_records`) lewat
-/// backend; daftar di memori hanya cache. Tanpa sesi login (mis. widget test)
-/// perilakunya sama seperti sebelumnya: hanya di memori.
+/// Riwayat scan. Sumber kebenaran adalah database Supabase (tabel `scan_records`)
+/// lewat backend FastAPI dengan fallback otomatis langsung ke Supabase SDK.
+/// Daftar di memori hanya cache; tanpa sesi login (mis. widget test) perilakunya
+/// hanya di memori.
 class SkinHistoryRepository extends ChangeNotifier implements CloudSyncable {
   SkinHistoryRepository._();
   static final SkinHistoryRepository instance = SkinHistoryRepository._();
   final List<SkinAnalysis> _records = [];
+  final List<Future<void>> _inFlight = [];
 
   ApiClient get _api => ApiClient.instance;
+
+  bool get _canSync => _api.isAvailable || SupabaseDirect.isSignedIn;
+
+  void _track(Future<void> task) {
+    _inFlight.add(task);
+    task.whenComplete(() => _inFlight.remove(task));
+  }
 
   Future<List<SkinAnalysis>> fetchHistory(
       {DateTime? date, bool newestFirst = true}) async {
@@ -95,8 +105,45 @@ class SkinHistoryRepository extends ChangeNotifier implements CloudSyncable {
           imageHeight: imageHeight);
     }
     notifyListeners();
-    unawaited(_push(record, quality: quality));
+    _track(_push(record, quality: quality));
     return record;
+  }
+
+  /// Simpan hasil rekomendasi LLM ke dalam record scan (`meta.llm_recommendation`).
+  Future<void> updateRecommendation(
+    String scanId,
+    Map<String, dynamic> recommendationJson,
+  ) async {
+    final index = _records.indexWhere((r) => r.id == scanId);
+    if (index < 0) return;
+    final updated =
+        _records[index].copyWith(llmRecommendation: recommendationJson);
+    _records[index] = updated;
+    notifyListeners();
+
+    if (!_canSync) return;
+    final task = _pushMeta(updated);
+    _track(task);
+    await task;
+  }
+
+  Future<void> _pushMeta(SkinAnalysis record) async {
+    final meta = record.buildMeta(
+      quality: record.modelConnected ? 'pass' : 'unchecked',
+    );
+    if (_api.isAvailable) {
+      try {
+        await _api.patch('/scan/history/${record.id}', body: {'meta': meta});
+        return;
+      } on Object catch (e) {
+        debugPrint('Simpan meta scan via backend gagal, fallback ke Supabase: $e');
+      }
+    }
+    try {
+      await SupabaseDirect.updateScanRecord(record.id, {'meta': meta});
+    } on Object catch (e) {
+      debugPrint('Simpan meta scan ke Supabase gagal: $e');
+    }
   }
 
   /// Hapus satu scan dari riwayat (lokal dan database).
@@ -105,20 +152,37 @@ class SkinHistoryRepository extends ChangeNotifier implements CloudSyncable {
     if (index < 0) return;
     final removed = _records.removeAt(index);
     notifyListeners();
-    if (!_api.isAvailable) return;
-    try {
-      await _api.delete('/scan/history/$id');
-      final path = removed.imagePath;
-      if (path != null) await CloudStorage.remove([path]);
-    } on Object catch (e) {
-      debugPrint('Hapus scan di server gagal: $e');
+    if (!_canSync) return;
+    final task = _deleteRemote(removed);
+    _track(task);
+    await task;
+  }
+
+  Future<void> _deleteRemote(SkinAnalysis removed) async {
+    var deletedOnBackend = false;
+    if (_api.isAvailable) {
+      try {
+        await _api.delete('/scan/history/${removed.id}');
+        deletedOnBackend = true;
+      } on Object catch (e) {
+        debugPrint('Hapus scan di backend gagal, fallback ke Supabase: $e');
+      }
     }
+    if (!deletedOnBackend) {
+      try {
+        await SupabaseDirect.deleteScanRecord(removed.id);
+      } on Object catch (e) {
+        debugPrint('Hapus scan di Supabase gagal: $e');
+      }
+    }
+    final path = removed.imagePath;
+    if (path != null) await CloudStorage.remove([path]);
   }
 
   // ---------------------------------------------------------------- sync
 
   Future<void> _push(SkinAnalysis record, {String quality = 'unchecked'}) async {
-    if (!_api.isAvailable) return;
+    if (!_canSync) return;
     try {
       var path = record.imagePath;
       final bytes = record.selfieBytes;
@@ -128,8 +192,17 @@ class SkinHistoryRepository extends ChangeNotifier implements CloudSyncable {
       }
       final current = _records.firstWhere((r) => r.id == record.id,
           orElse: () => record);
-      await _api.post('/scan/records',
-          body: current.toApiJson(quality: quality));
+      final body = current.toApiJson(quality: quality);
+
+      if (_api.isAvailable) {
+        try {
+          await _api.post('/scan/records', body: body);
+          return;
+        } on Object catch (e) {
+          debugPrint('Simpan scan via backend gagal, fallback ke Supabase: $e');
+        }
+      }
+      await SupabaseDirect.upsertScanRecord(body);
     } on Object catch (e) {
       debugPrint('Simpan scan ke server gagal: $e');
     }
@@ -141,18 +214,39 @@ class SkinHistoryRepository extends ChangeNotifier implements CloudSyncable {
   }
 
   @override
+  Future<void> flushPending() async {
+    if (_inFlight.isEmpty) return;
+    await Future.wait(List<Future<void>>.of(_inFlight));
+  }
+
+  @override
   Future<void> pullFromServer() async {
-    if (!_api.isAvailable) return;
-    final remote = <SkinAnalysis>[];
-    var offset = 0;
-    while (true) {
-      final page = await _api.get('/scan/history',
-          query: {'limit': 100, 'offset': offset}) as Map<String, dynamic>;
-      final items = (page['items'] as List).cast<Map<String, dynamic>>();
-      remote.addAll(items.map(SkinAnalysis.fromApiJson));
-      offset += items.length;
-      if (items.isEmpty || offset >= (page['total'] as int)) break;
+    if (!_canSync) return;
+    List<SkinAnalysis>? remote;
+
+    if (_api.isAvailable) {
+      try {
+        final collected = <SkinAnalysis>[];
+        var offset = 0;
+        while (true) {
+          final page = await _api.get('/scan/history',
+              query: {'limit': 100, 'offset': offset}) as Map<String, dynamic>;
+          final items = (page['items'] as List).cast<Map<String, dynamic>>();
+          collected.addAll(items.map(SkinAnalysis.fromApiJson));
+          offset += items.length;
+          if (items.isEmpty || offset >= (page['total'] as int)) break;
+        }
+        remote = collected;
+      } on Object catch (e) {
+        debugPrint('Tarik riwayat scan via backend gagal, fallback ke Supabase: $e');
+      }
     }
+
+    if (remote == null && SupabaseDirect.isSignedIn) {
+      final rows = await SupabaseDirect.fetchScanHistory();
+      remote = rows.map(SkinAnalysis.fromApiJson).toList();
+    }
+    if (remote == null) return;
 
     final localById = {for (final r in _records) r.id: r};
     final remoteIds = {for (final r in remote) r.id};
@@ -170,7 +264,7 @@ class SkinHistoryRepository extends ChangeNotifier implements CloudSyncable {
     notifyListeners();
 
     for (final r in unsynced) {
-      unawaited(_push(r));
+      _track(_push(r));
     }
     unawaited(_downloadMissingPhotos());
   }

@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/cloud_storage.dart';
 import '../../../core/api/cloud_sync.dart';
+import '../../../core/api/supabase_direct.dart';
 import'../../scan/data/skin_demo_data.dart';
 import'../../scan/models/skin_analysis.dart';
 import'../../progress/domain/skin_timeline_engine.dart';
@@ -297,6 +298,29 @@ class SkinJourneyStore extends ChangeNotifier implements CloudSyncable {
     notifyListeners();
   }
 
+  void deleteJourneyPermanently(String id) {
+    final before = _journeys.length;
+    _journeys.removeWhere((journey) => journey.id == id);
+    if (_journeys.length == before) return;
+    _lastSynced.remove(id);
+    _remoteIds.remove(id);
+    _remoteDeleted.remove(id);
+    _syncedCheckinIds.remove(id);
+    if (_selectedJourneyId == id) {
+      final fallback = _journeys.where(
+          (item) => item.deletedAt == null && item.isVisibleInCatalog);
+      if (fallback.isNotEmpty) {
+        _selectedJourneyId = fallback.first.id;
+      } else {
+        _createJourney(explicitlyCreated: false);
+      }
+    }
+    notifyListeners();
+    if (_canSync) {
+      unawaited(_deleteJourneyPermanentlyRemote(id));
+    }
+  }
+
   SkinJourneyRecord? _findJourney(String id) {
     for (final journey in _journeys) {
       if (journey.id == id) return journey;
@@ -563,6 +587,7 @@ class SkinJourneyStore extends ChangeNotifier implements CloudSyncable {
     }
     final due = activeDueDate!;
     checkins.add(JourneyCheckin(
+      id: _uuidV4(),
       date: today,
       dueDate: due,
       perClass: Map.unmodifiable(_draftReports),
@@ -677,19 +702,51 @@ class SkinJourneyStore extends ChangeNotifier implements CloudSyncable {
   final Map<String, String> _lastSynced = {};
   final Set<String> _remoteIds = {};
   final Set<String> _remoteDeleted = {};
-  final Map<String, int> _syncedCheckins = {};
+  final Map<String, Set<String>> _syncedCheckinIds = {};
   final Map<String, String> _photoPaths = {};
   Timer? _syncTimer;
+  Future<void>? _activeSync;
   bool _syncing = false;
   bool _syncAgain = false;
   bool _applyingRemote = false;
 
   ApiClient get _api => ApiClient.instance;
 
+  bool get _canSync => _api.isAvailable || SupabaseDirect.isSignedIn;
+
   void _scheduleSync() {
-    if (_applyingRemote || !_api.isAvailable) return;
+    if (_applyingRemote || !_canSync) return;
     _syncTimer?.cancel();
-    _syncTimer = Timer(const Duration(seconds: 2), () => unawaited(_syncDirty()));
+    _syncTimer =
+        Timer(const Duration(seconds: 2), () => unawaited(_syncDirty()));
+  }
+
+  @override
+  Future<void> flushPending() async {
+    _syncTimer?.cancel();
+    _syncTimer = null;
+    if (!_canSync) return;
+    if (_activeSync != null) {
+      await _activeSync;
+    }
+    await _syncDirty();
+  }
+
+  Future<void> _deleteJourneyPermanentlyRemote(String id) async {
+    if (_api.isAvailable) {
+      try {
+        await _api.delete('/journeys/$id', query: {'permanent': 'true'});
+        return;
+      } on Object catch (e) {
+        debugPrint(
+            'Hapus permanen journey via backend gagal, fallback ke Supabase: $e');
+      }
+    }
+    try {
+      await SupabaseDirect.deleteJourneyPermanently(id);
+    } on Object catch (e) {
+      debugPrint('Hapus permanen journey di Supabase gagal: $e');
+    }
   }
 
   static String _uuidV4() {
@@ -769,12 +826,14 @@ class SkinJourneyStore extends ChangeNotifier implements CloudSyncable {
       };
 
   Future<void> _syncDirty() async {
-    if (!_api.isAvailable) return;
+    if (!_canSync) return;
     if (_syncing) {
       _syncAgain = true;
       return;
     }
     _syncing = true;
+    final completer = Completer<void>();
+    _activeSync = completer.future;
     try {
       for (final journey in List.of(_journeys)) {
         if (!journey.isVisibleInCatalog) continue;
@@ -786,6 +845,7 @@ class SkinJourneyStore extends ChangeNotifier implements CloudSyncable {
       }
     } finally {
       _syncing = false;
+      if (!completer.isCompleted) completer.complete();
       if (_syncAgain) {
         _syncAgain = false;
         _scheduleSync();
@@ -804,41 +864,96 @@ class SkinJourneyStore extends ChangeNotifier implements CloudSyncable {
     final body = _journeyBody(j);
     final fingerprint = jsonEncode(body);
     if (_lastSynced[j.id] != fingerprint) {
-      if (_remoteIds.contains(j.id)) {
-        await _api.put('/journeys/${j.id}', body: body);
-      } else {
+      var savedViaBackend = false;
+      if (_api.isAvailable) {
         try {
-          await _api.post('/journeys', body: {'id': j.id, ...body});
-        } on ApiException catch (e) {
-          if (e.statusCode != 409) rethrow;
-          await _api.put('/journeys/${j.id}', body: body);
+          if (_remoteIds.contains(j.id)) {
+            await _api.put('/journeys/${j.id}', body: body);
+          } else {
+            try {
+              await _api.post('/journeys', body: {'id': j.id, ...body});
+            } on ApiException catch (e) {
+              if (e.statusCode != 409) rethrow;
+              await _api.put('/journeys/${j.id}', body: body);
+            }
+          }
+          savedViaBackend = true;
+        } on Object catch (e) {
+          debugPrint(
+              'Simpan journey via backend gagal, fallback ke Supabase: $e');
         }
-        _remoteIds.add(j.id);
       }
+      if (!savedViaBackend) {
+        await SupabaseDirect.upsertJourney(j.id, body);
+      }
+      _remoteIds.add(j.id);
       _lastSynced[j.id] = fingerprint;
     }
 
     final deleted = j.deletedAt != null;
     if (deleted && !_remoteDeleted.contains(j.id)) {
-      await _api.delete('/journeys/${j.id}');
+      var done = false;
+      if (_api.isAvailable) {
+        try {
+          await _api.delete('/journeys/${j.id}');
+          done = true;
+        } on Object catch (e) {
+          debugPrint('Soft-delete journey via backend gagal, fallback: $e');
+        }
+      }
+      if (!done) {
+        await SupabaseDirect.setJourneyDeletedAt(j.id, j.deletedAt);
+      }
       _remoteDeleted.add(j.id);
     } else if (!deleted && _remoteDeleted.contains(j.id)) {
-      await _api.post('/journeys/${j.id}/restore');
+      var done = false;
+      if (_api.isAvailable) {
+        try {
+          await _api.post('/journeys/${j.id}/restore');
+          done = true;
+        } on Object catch (e) {
+          debugPrint('Restore journey via backend gagal, fallback: $e');
+        }
+      }
+      if (!done) {
+        await SupabaseDirect.setJourneyDeletedAt(j.id, null);
+      }
       _remoteDeleted.remove(j.id);
     }
 
-    var sent = _syncedCheckins[j.id] ?? 0;
-    while (sent < j.checkins.length) {
-      final c = j.checkins[sent];
-      await _api.post('/journeys/checkin', body: {
+    final syncedIds = _syncedCheckinIds.putIfAbsent(j.id, () => <String>{});
+    for (final c in j.checkins) {
+      final cid = c.id ?? _uuidV4();
+      if (syncedIds.contains(cid)) continue;
+      final checkinBody = {
+        'id': cid,
         'journey_id': j.id,
         'checkin_date': c.date.toIso8601String().substring(0, 10),
         'notes':
             [c.treatment, c.irritation].where((s) => s.isNotEmpty).join(' | '),
         'meta': _checkinMeta(c),
-      });
-      sent++;
-      _syncedCheckins[j.id] = sent;
+      };
+      var saved = false;
+      if (_api.isAvailable) {
+        try {
+          await _api.post('/journeys/checkin', body: checkinBody);
+          saved = true;
+        } on ApiException catch (e) {
+          if (e.statusCode == 409) {
+            saved = true;
+          } else {
+            debugPrint(
+                'Simpan check-in via backend gagal, fallback ke Supabase: $e');
+          }
+        } on Object catch (e) {
+          debugPrint(
+              'Simpan check-in via backend gagal, fallback ke Supabase: $e');
+        }
+      }
+      if (!saved) {
+        await SupabaseDirect.upsertCheckin(checkinBody);
+      }
+      syncedIds.add(cid);
     }
   }
 
@@ -946,6 +1061,7 @@ class SkinJourneyStore extends ChangeNotifier implements CloudSyncable {
     final date =
         _dt(m['date']) ?? DateTime.parse(json['checkin_date'] as String);
     return JourneyCheckin(
+      id: json['id'] as String?,
       date: date,
       dueDate: _dt(m['due_date']) ?? date,
       perClass: {
@@ -967,24 +1083,71 @@ class SkinJourneyStore extends ChangeNotifier implements CloudSyncable {
     );
   }
 
+  Future<Map<String, String>> _fetchLatestQuizAnswers() async {
+    Map<String, dynamic>? row;
+    if (_api.isAvailable) {
+      try {
+        row = await _api.get('/quiz/latest') as Map<String, dynamic>?;
+      } on Object {
+        row = null;
+      }
+    }
+    row ??= await SupabaseDirect.fetchLatestQuiz();
+    final raw = (row?['answers'] as Map?) ?? const {};
+    return {for (final e in raw.entries) '${e.key}': '${e.value}'};
+  }
+
   @override
   Future<void> pullFromServer() async {
-    if (!_api.isAvailable) return;
-    final list = (await _api.get('/journeys', query: {'include_deleted': 'true'})
-            as List)
-        .cast<Map<String, dynamic>>();
+    if (!_canSync) return;
+    List<Map<String, dynamic>>? detailedList;
+
+    if (_api.isAvailable) {
+      try {
+        final list = (await _api
+                .get('/journeys', query: {'include_deleted': 'true'}) as List)
+            .cast<Map<String, dynamic>>();
+        final collected = <Map<String, dynamic>>[];
+        for (final item in list) {
+          final detail =
+              await _api.get('/journeys/${item['id']}') as Map<String, dynamic>;
+          collected.add(detail);
+        }
+        detailedList = collected;
+      } on Object catch (e) {
+        debugPrint(
+            'Tarik journey via backend gagal, fallback ke Supabase: $e');
+      }
+    }
+
+    if (detailedList == null && SupabaseDirect.isSignedIn) {
+      detailedList = await SupabaseDirect.fetchJourneysWithCheckins();
+    }
+    if (detailedList == null) return;
 
     final rebuilt = <SkinJourneyRecord>[];
-    final checkinCounts = <String, int>{};
-    for (final item in list) {
-      final detail =
-          await _api.get('/journeys/${item['id']}') as Map<String, dynamic>;
+    final checkinIds = <String, Set<String>>{};
+    for (final detail in detailedList) {
       final record = await _recordFromServer(detail);
-      final checkins =
-          (detail['checkins'] as List).cast<Map<String, dynamic>>();
-      record.checkins.addAll(checkins.map(_checkinFromServer));
+      final checkins = ((detail['checkins'] as List?) ?? const [])
+          .cast<Map<String, dynamic>>();
+      final parsed = checkins.map(_checkinFromServer).toList();
+      record.checkins.addAll(parsed);
       rebuilt.add(record);
-      checkinCounts[record.id] = checkins.length;
+      checkinIds[record.id] = {
+        for (final c in parsed)
+          if (c.id != null) c.id!,
+      };
+    }
+
+    Map<String, String> latestQuizAnswers = const {};
+    final anyAnswers = rebuilt.any((r) => r.answers.isNotEmpty);
+    if (!anyAnswers) {
+      try {
+        latestQuizAnswers = await _fetchLatestQuizAnswers();
+      } on Object {
+        latestQuizAnswers = const {};
+      }
     }
 
     _applyingRemote = true;
@@ -1004,9 +1167,9 @@ class SkinJourneyStore extends ChangeNotifier implements CloudSyncable {
       _remoteDeleted
         ..clear()
         ..addAll(rebuilt.where((r) => r.deletedAt != null).map((r) => r.id));
-      _syncedCheckins
+      _syncedCheckinIds
         ..clear()
-        ..addAll(checkinCounts);
+        ..addAll(checkinIds);
       _lastSynced
         ..clear()
         ..addEntries(
@@ -1021,8 +1184,13 @@ class SkinJourneyStore extends ChangeNotifier implements CloudSyncable {
         if (fallback.isNotEmpty) {
           _selectedJourneyId = fallback.first.id;
         } else {
-          _createJourney(explicitlyCreated: false);
+          final created = _createJourney(explicitlyCreated: false);
+          if (latestQuizAnswers.isNotEmpty) {
+            created.answers.addAll(latestQuizAnswers);
+          }
         }
+      } else if (latestQuizAnswers.isNotEmpty && selectedJourney.answers.isEmpty) {
+        selectedJourney.answers.addAll(latestQuizAnswers);
       }
       notifyListeners();
     } finally {
@@ -1043,7 +1211,7 @@ class SkinJourneyStore extends ChangeNotifier implements CloudSyncable {
       _lastSynced.clear();
       _remoteIds.clear();
       _remoteDeleted.clear();
-      _syncedCheckins.clear();
+      _syncedCheckinIds.clear();
       _photoPaths.clear();
       _createJourney(explicitlyCreated: false);
       notifyListeners();
@@ -1162,6 +1330,7 @@ class JourneyPhoto {
 }
 
 class JourneyCheckin {
+  final String? id;
   final DateTime date;
   final DateTime dueDate;
   final Map<String, String> perClass;
@@ -1173,7 +1342,8 @@ class JourneyCheckin {
   final String careNote;
   final bool isDemo;
   const JourneyCheckin(
-      {required this.date,
+      {this.id,
+      required this.date,
       required this.dueDate,
       required this.perClass,
       required this.treatment,

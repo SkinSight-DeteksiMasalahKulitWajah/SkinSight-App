@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import NullPool
 
 from app.api import deps
-from app.core.database import database_url, get_db
+from app.core.database import database_connect_args, database_url, get_db
 from app.core.security import AuthUser
 from app.main import app
 
@@ -46,7 +46,7 @@ def _required_user(authorization: Optional[str] = Header(None)) -> AuthUser:
 @pytest_asyncio.fixture
 async def make_client(monkeypatch):
     """Factory klien HTTP untuk user tertentu (atau anonim); membersihkan data user saat selesai."""
-    engine = create_async_engine(database_url, poolclass=NullPool)
+    engine = create_async_engine(database_url, connect_args=database_connect_args, poolclass=NullPool)
     maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     created: list[uuid.UUID] = []
     clients: list[AsyncClient] = []

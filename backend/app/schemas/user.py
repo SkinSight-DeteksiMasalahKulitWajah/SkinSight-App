@@ -34,3 +34,4 @@ class ProfileUpdate(BaseModel):
 
 class UserSyncRequest(BaseModel):
     full_name: Optional[str] = Field(default=None, max_length=255)
+    avatar_url: Optional[str] = Field(default=None, max_length=1024)

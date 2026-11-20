@@ -36,6 +36,16 @@ class ScanAnalysisResult(BaseModel):
     recommended_products: List[ProductRecommendation] = Field(
         default_factory=list, description="Produk terkurasi sesuai budget & masalah kulit"
     )
+    image_url: Optional[str] = Field(default=None, description="Path foto di Supabase Storage (bucket skin-scans)")
+    signed_image_url: Optional[str] = Field(default=None, description="Signed URL sementara untuk foto scan privat")
+    meta: Dict[str, Any] = Field(default_factory=dict, description="Metadata tambahan (visual_boxes, ukuran gambar)")
+
+
+class SignedImageUrlResponse(BaseModel):
+    scan_id: str
+    image_url: str
+    signed_url: str
+    expires_in: int
 
 
 class ScanAnalysisResponse(BaseModel):

@@ -1,4 +1,6 @@
-from typing import AsyncGenerator
+from typing import Any, AsyncGenerator, Dict, Tuple
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -13,13 +15,51 @@ class Base(DeclarativeBase):
     pass
 
 
-# Pastikan scheme koneksi menggunakan postgresql+asyncpg untuk mode async
-database_url = settings.DATABASE_URL
-if database_url.startswith("postgresql://"):
-    database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+def prepare_asyncpg_connection(raw_url: str) -> Tuple[str, Dict[str, Any]]:
+    """Normalisasi URL PostgreSQL agar kompatibel dengan driver asyncpg.
+
+    - Mengubah scheme `postgresql://` atau `postgres://` -> `postgresql+asyncpg://`.
+    - Memindahkan parameter `sslmode` (yang tidak dikenali asyncpg) ke `connect_args['ssl']`.
+    - Mematikan statement cache secara otomatis untuk PgBouncer / Supabase transaction pooler (port 6543).
+    """
+    url = raw_url.strip()
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+    elif url.startswith("postgresql://"):
+        url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+    parsed = urlsplit(url)
+    connect_args: Dict[str, Any] = {}
+    filtered_query = []
+
+    for key, value in parse_qsl(parsed.query, keep_blank_values=True):
+        lowered = key.lower()
+        if lowered == "sslmode":
+            mode = value.lower()
+            if mode in {"require", "verify-ca", "verify-full", "prefer", "allow"}:
+                connect_args["ssl"] = "require"
+            elif mode == "disable":
+                connect_args["ssl"] = False
+            continue
+        if lowered == "ssl":
+            connect_args["ssl"] = False if value.lower() in {"false", "0", "disable"} else value
+            continue
+        filtered_query.append((key, value))
+
+    if parsed.port == 6543:
+        connect_args["statement_cache_size"] = 0
+
+    clean_url = urlunsplit(
+        (parsed.scheme, parsed.netloc, parsed.path, urlencode(filtered_query), parsed.fragment)
+    )
+    return clean_url, connect_args
+
+
+database_url, database_connect_args = prepare_asyncpg_connection(settings.DATABASE_URL)
 
 engine = create_async_engine(
     database_url,
+    connect_args=database_connect_args,
     echo=settings.ENVIRONMENT == "development",
     future=True,
     pool_size=10,
