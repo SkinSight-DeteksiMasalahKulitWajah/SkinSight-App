@@ -2,9 +2,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import'../../data/skin_education_content.dart';
-import'../../../../core/theme/skin_theme.dart';
-import'../../../../shared/widgets/design_system/skin_ui.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/skin_theme.dart';
+import '../../../../shared/widgets/design_system/skin_ui.dart';
+import '../../data/skin_education_content.dart';
 
 /// Ilustrasi artikel: lingkaran kaca berisi ikon topik, daun aloe di
 /// belakang, dan percikan tetes air — pengganti foto produk di referensi.
@@ -122,12 +123,18 @@ class _DropletsPainter extends CustomPainter {
   bool shouldRepaint(covariant _DropletsPainter old) => old.seed != seed;
 }
 
-/// Tombol hati untuk menyimpan artikel.
+/// Tombol simpan (bookmark) untuk menyimpan artikel.
 class SkinSaveArticleButton extends StatelessWidget {
-  const SkinSaveArticleButton({super.key, required this.slug, this.size = 40});
+  const SkinSaveArticleButton({
+    super.key,
+    required this.slug,
+    this.size = 40,
+    this.darkSurface = false,
+  });
 
   final String slug;
   final double size;
+  final bool darkSurface;
 
   @override
   Widget build(BuildContext context) {
@@ -138,8 +145,14 @@ class SkinSaveArticleButton extends StatelessWidget {
         return SkinCircleButton(
           size: size,
           tooltip: on ? 'Hapus dari simpanan' : 'Simpan artikel',
-          icon: on ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-          background: Colors.white,
+          icon: on ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+          background: darkSurface
+              ? Colors.white.withValues(alpha: .16)
+              : Colors.white,
+          iconColor: darkSurface
+              ? Colors.white
+              : (on ? SkinTokens.primary : SkinTokens.ink),
+          shadow: !darkSurface,
           onPressed: () => toggleSavedArticle(slug),
         );
       },
@@ -248,106 +261,148 @@ class SkinForYouCard extends StatelessWidget {
   }
 }
 
-/// Lembar artikel lengkap dari bawah layar.
+/// Lembar baca artikel lengkap (Read Mode: kolom baca tenang, kontras tinggi).
 void showSkinArticleSheet(BuildContext context, SkinArticle article) {
+  final topicLabel = skinTopicLabels[article.topic] ?? article.topic;
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
+    backgroundColor: Colors.white,
     builder: (context) => DraggableScrollableSheet(
       expand: false,
-      initialChildSize: .82,
+      initialChildSize: .86,
       minChildSize: .55,
-      maxChildSize: .94,
+      maxChildSize: .95,
       builder: (context, scrollController) => ListView(
         controller: scrollController,
-        padding: const EdgeInsets.fromLTRB(24, 4, 24, 36),
+        padding: const EdgeInsets.fromLTRB(22, 4, 22, 36),
         children: [
           Container(
-            height: 176,
-            clipBehavior: Clip.antiAlias,
+            padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: article.gradient,
-              ),
-              borderRadius: BorderRadius.circular(SkinTokens.radiusXl),
-              border: Border.all(color: Colors.white, width: 1.5),
+              gradient: SkinTokens.deepGradient,
+              borderRadius: BorderRadius.circular(22),
             ),
-            child: Stack(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Positioned(
-                  right: 12,
-                  bottom: 0,
-                  child: SkinArticleArt(article: article, size: 170),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.mintTint,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            article.icon,
+                            size: 13,
+                            color: AppColors.forestDeep,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            topicLabel,
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.forestDeep,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        '${article.readTime} baca',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFFD4E8E0),
+                          fontFeatures: [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ),
+                    SkinSaveArticleButton(
+                      slug: article.slug,
+                      size: 38,
+                      darkSurface: true,
+                    ),
+                  ],
                 ),
-                Positioned(
-                  top: 16,
-                  left: 16,
-                  child: SkinSaveArticleButton(slug: article.slug),
+                const SizedBox(height: 14),
+                Text(
+                  article.title,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    height: 1.24,
+                    letterSpacing: -.3,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 20),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              SkinPill(label: skinTopicLabels[article.topic] ?? article.topic),
-              SkinPill(
-                label: '${article.readTime} baca',
-                tone: SkinTone.neutral,
-                icon: Icons.schedule_rounded,
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Text(
-            article.title,
-            style: SkinTokens.title.copyWith(fontSize: 30),
-          ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 18),
           Text(
             article.summary,
             style: const TextStyle(
               color: SkinTokens.muted,
-              fontSize: 16,
-              height: 1.5,
+              fontSize: 15,
+              height: 1.55,
+              fontWeight: FontWeight.w500,
             ),
           ),
           const Padding(
-            padding: EdgeInsets.symmetric(vertical: 20),
-            child: Divider(height: 1),
+            padding: EdgeInsets.symmetric(vertical: 18),
+            child: Divider(height: 1, color: SkinTokens.border),
           ),
           Text(
             article.body,
             style: const TextStyle(
               color: SkinTokens.ink,
-              fontSize: 16,
-              height: 1.7,
+              fontSize: 15.5,
+              height: 1.72,
             ),
           ),
           const SizedBox(height: 24),
-          SkinCard(
-            color: SkinTokens.mint.withValues(alpha: .7),
-            shadow: false,
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.mistTop,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: SkinTokens.border),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Row(
                   children: [
-                    SkinIconTile(
-                      icon: Icons.lightbulb_outline_rounded,
-                      size: 32,
-                      tone: SkinTone.neutral,
+                    Icon(
+                      Icons.lightbulb_outline_rounded,
+                      size: 18,
+                      color: SkinTokens.primary,
                     ),
-                    SizedBox(width: 10),
-                    Text('Yang perlu diingat', style: SkinTokens.cardTitle),
+                    SizedBox(width: 8),
+                    Text(
+                      'Yang perlu diingat',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: SkinTokens.ink,
+                      ),
+                    ),
                   ],
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
                 for (final point in article.keyPoints)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 10),
@@ -356,8 +411,11 @@ void showSkinArticleSheet(BuildContext context, SkinArticle article) {
                       children: [
                         const Padding(
                           padding: EdgeInsets.only(top: 3),
-                          child: Icon(Icons.check_circle_rounded,
-                              size: 17, color: SkinTokens.aloe),
+                          child: Icon(
+                            Icons.check_circle_rounded,
+                            size: 16,
+                            color: SkinTokens.primary,
+                          ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
@@ -365,7 +423,7 @@ void showSkinArticleSheet(BuildContext context, SkinArticle article) {
                             point,
                             style: const TextStyle(
                               color: SkinTokens.ink,
-                              fontSize: 14.5,
+                              fontSize: 14,
                               height: 1.5,
                             ),
                           ),
@@ -380,8 +438,11 @@ void showSkinArticleSheet(BuildContext context, SkinArticle article) {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.menu_book_outlined,
-                  size: 16, color: SkinTokens.muted),
+              const Icon(
+                Icons.menu_book_outlined,
+                size: 16,
+                color: SkinTokens.muted,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(

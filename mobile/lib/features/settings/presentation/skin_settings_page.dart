@@ -66,7 +66,7 @@ class SkinSettingsPage extends StatelessWidget {
                             tone: SkinTone.neutral,
                             icon: Icons.auto_awesome_outlined,
                             message:
-                                'Judul besar selalu memakai huruf serif Cormorant Garamond sebagai ciri khas SkinSight.',
+                                'Seluruh tampilan memakai huruf sans-serif modern agar mudah dibaca di segala ukuran layar.',
                           ),
                         ],
                       ),

@@ -32,6 +32,7 @@ flutter:
   # Daftar folder tidak rekursif: setiap subfolder harus didaftarkan sendiri.
   # assets/images/ (ilustrasi 2D lama) sengaja TIDAK dibundel lagi.
   assets:
+    - assets/app_icon.png
     - assets/photos/
     - assets/3d/
     - assets/ml_models/all_conditions_detect_float32.tflite

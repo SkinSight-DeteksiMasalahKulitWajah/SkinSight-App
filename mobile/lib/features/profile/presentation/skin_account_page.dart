@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/api/supabase_direct.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/skin_theme.dart';
 import '../models/profile_data.dart';
-import'../../../core/theme/skin_theme.dart';
 import'../../../shared/widgets/asset_images.dart';
 import'../../../shared/widgets/skin_page_background.dart';
 import'../../../shared/widgets/skin_page_header.dart';
@@ -42,17 +43,11 @@ class SkinAccountPage extends StatelessWidget {
                         child: const Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            SkinReveal(child: _AccountSummary()),
+                            _AccountSummary(),
                             SizedBox(height: 22),
-                            SkinReveal(
-                              delay: Duration(milliseconds: 80),
-                              child: _PersonalDataCard(),
-                            ),
+                            _PersonalDataCard(),
                             SizedBox(height: 20),
-                            SkinReveal(
-                              delay: Duration(milliseconds: 140),
-                              child: _SecurityCard(),
-                            ),
+                            _SecurityCard(),
                             SizedBox(height: 18),
                             SkinNotice(
                               dense: true,
@@ -134,11 +129,11 @@ class _AccountSummary extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontFamily: SkinTokens.serif,
                     color: SkinTokens.ink,
-                    fontSize: 24,
-                    height: 1.1,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 20,
+                    height: 1.2,
+                    letterSpacing: -.3,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -208,20 +203,9 @@ class _PersonalDataCard extends StatelessWidget {
                 ),
               ),
               const _FieldDivider(),
-              _ProfileField(
-                editKey: const Key('edit-profile-email'),
-                icon: Icons.mail_outline_rounded,
+              _ReadOnlyEmailField(
                 label: 'Alamat email',
                 value: profile.email,
-                onEdit: () => _editValue(
-                  context,
-                  title: 'Ubah alamat email',
-                  label: 'Alamat email',
-                  icon: Icons.mail_outline_rounded,
-                  initialValue: profile.email,
-                  keyboardType: TextInputType.emailAddress,
-                  onSaved: context.read<ProfileData>().updateEmail,
-                ),
               ),
             ],
           ),
@@ -265,8 +249,77 @@ class _GroupLabel extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(left: 4, bottom: 10),
       child: Text(
-        text.toUpperCase(),
-        style: SkinTokens.eyebrow.copyWith(color: SkinTokens.muted),
+        text,
+        style: const TextStyle(
+          fontSize: 13.5,
+          fontWeight: FontWeight.w700,
+          color: SkinTokens.muted,
+        ),
+      ),
+    );
+  }
+}
+
+class _ReadOnlyEmailField extends StatelessWidget {
+  const _ReadOnlyEmailField({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      child: Row(
+        children: [
+          const SkinIconTile(icon: Icons.mail_outline_rounded, size: 40),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: SkinTokens.muted,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: SkinTokens.ink,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: AppColors.mintTint,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: const Text(
+              'Terverifikasi',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: SkinTokens.primary,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

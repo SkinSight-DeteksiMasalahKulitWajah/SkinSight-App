@@ -50,13 +50,10 @@ class SkinProfilePage extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         // Kartu 1: identitas pengguna + akses "Profil Saya".
-                        SkinReveal(child: _IdentitySection(compact: compact)),
+                        _IdentitySection(compact: compact),
                         const SizedBox(height: 22),
-                        // Kartu 2: tautan lainnya + keluar akun.
-                        const SkinReveal(
-                          delay: Duration(milliseconds: 100),
-                          child: _SupportLinks(),
-                        ),
+                        // Kartu 2: tautan lainnya + keluar.
+                        const _SupportLinks(),
                         const SizedBox(height: 20),
                         const Center(
                           child: Text(
@@ -274,11 +271,11 @@ class _IdentitySection extends StatelessWidget {
             key: const Key('profile-name-heading'),
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontFamily: SkinTokens.serif,
               color: SkinTokens.ink,
-              fontSize: compact ? 28 : 32,
-              height: 1.1,
-              fontWeight: FontWeight.w500,
+              fontSize: compact ? 21 : 23,
+              height: 1.2,
+              letterSpacing: -.3,
+              fontWeight: FontWeight.w800,
             ),
           ),
           const SizedBox(height: 6),
@@ -569,7 +566,7 @@ class _SupportLinks extends StatelessWidget {
                 key: const Key('logout-account'),
                 icon: Icons.logout_rounded,
                 tone: SkinTone.danger,
-                label: 'Keluar akun',
+                label: 'Keluar',
                 subtitle: 'Akhiri sesi di perangkat ini',
                 danger: true,
                 onTap: () => _confirmLogout(context),

@@ -39,9 +39,12 @@ class ApiException implements Exception {
   String toString() => 'ApiException($statusCode): $message';
 }
 
-/// Klien HTTP tipis untuk backend SkinSight. Otomatis menyertakan access token
-/// Supabase. Bila belum ada sesi (mis. widget test), [isAvailable] bernilai false
-/// dan pemanggil harus melewati sinkronisasi.
+/// Klien HTTP tipis untuk backend SkinSight dengan circuit-breaker cepat.
+///
+/// Saat berjalan di HP fisik tanpa backend lokal (`10.0.2.2:8000`), request
+/// pertama gagal cepat dalam 2 detik lalu menandai backend sementara tidak
+/// terjangkau selama 2 menit agar semua operasi langsung memakai Supabase SDK
+/// tanpa menunggu timeout berulang-ulang.
 class ApiClient {
   ApiClient({http.Client? client, String? baseUrl, String? Function()? tokenProvider})
       : _client = client ?? http.Client(),
@@ -54,7 +57,12 @@ class ApiClient {
   final String _baseUrl;
   final String? Function() _tokenProvider;
 
-  static const _timeout = Duration(seconds: 8);
+  static const _probeTimeout = Duration(seconds: 2);
+  static const _connectedTimeout = Duration(seconds: 12);
+  static const _cooldown = Duration(minutes: 2);
+
+  bool _everConnected = false;
+  DateTime? _unreachableUntil;
 
   String get baseUrl => _baseUrl;
 
@@ -68,7 +76,30 @@ class ApiClient {
     }
   }
 
+  /// Apakah sesi auth tersedia untuk memanggil backend.
   bool get isAvailable => _tokenProvider() != null;
+
+  /// True bila backend tidak sedang dalam cooldown akibat gagal koneksi.
+  bool get isReachableNow {
+    final until = _unreachableUntil;
+    if (until == null) return true;
+    if (DateTime.now().isAfter(until)) {
+      _unreachableUntil = null;
+      return true;
+    }
+    return false;
+  }
+
+  /// Gunakan ini sebelum mencoba memanggil backend FastAPI; bila false,
+  /// pemanggil dapat langsung memakai fallback Supabase SDK tanpa delay.
+  bool get shouldAttemptBackend => isAvailable && isReachableNow;
+
+  /// Reset circuit-breaker (mis. saat user menarik refresh atau login ulang).
+  void resetCircuitBreaker() {
+    _unreachableUntil = null;
+  }
+
+  Duration get _timeout => _everConnected ? _connectedTimeout : _probeTimeout;
 
   Uri _uri(String path, [Map<String, dynamic>? query]) {
     final normalizedPath = path.startsWith('/') ? path : '/$path';
@@ -105,10 +136,14 @@ class ApiClient {
     try {
       response = await request().timeout(_timeout);
     } on TimeoutException {
+      _unreachableUntil = DateTime.now().add(_cooldown);
       throw const ApiException(0, 'Server tidak merespons.');
     } on Object catch (e) {
+      _unreachableUntil = DateTime.now().add(_cooldown);
       throw ApiException(0, 'Tidak dapat terhubung ke server: $e');
     }
+    _everConnected = true;
+    _unreachableUntil = null;
     final text = utf8.decode(response.bodyBytes);
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return text.isEmpty ? null : jsonDecode(text);

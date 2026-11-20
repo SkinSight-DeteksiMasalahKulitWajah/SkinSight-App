@@ -187,6 +187,10 @@ class _SkinInitialScanPageState extends State<SkinInitialScanPage> {
       segmentationAreas: areaAverages,
       classConfidences: confidenceAverages,
       modelVersion: versions.length == 1 ? versions.single : 'mixed-baseline',
+      faceRect: _sessions.first.faceRect,
+      visualBoxes: _sessions.first.visualBoxes,
+      imageWidth: _sessions.first.imageWidth,
+      imageHeight: _sessions.first.imageHeight,
     );
   }
 
@@ -233,30 +237,38 @@ class _SkinInitialScanPageState extends State<SkinInitialScanPage> {
       );
       return;
     }
-    setState(() => _saving = true);
-    final average = _averageAnalysis();
-    await SkinHistoryRepository.instance.saveLatest(
-      average.selfieBytes,
-      findings: average.visualFindings,
-      skinType: average.skinType,
-      modelConnected: average.modelConnected,
-      isDemo: average.isDemo,
-      detectionCounts: average.detectionCounts,
-      segmentationAreas: average.segmentationAreas,
-      classConfidences: average.classConfidences,
-      skinTypeConfidence: average.skinTypeConfidence,
-      modelVersion: average.modelVersion,
-      quality: average.modelConnected ? 'pass' : 'unchecked',
-    );
-    if (!mounted) return;
+    // Minta nama perjalanan lebih dulu agar tidak ada data setengah tersimpan
+    // jika pengguna membatalkan dialog.
     final name = await _askJourneyName();
-    if (!mounted) return;
-    if (name == null) {
-      setState(() => _saving = false);
-      return;
+    if (!mounted || name == null) return;
+
+    setState(() => _saving = true);
+    try {
+      SkinJourneyStore.instance.finalizeCurrentJourney(name);
+      final average = _averageAnalysis();
+      await SkinHistoryRepository.instance.saveLatest(
+        average.selfieBytes,
+        findings: average.visualFindings,
+        skinType: average.skinType,
+        modelConnected: average.modelConnected,
+        isDemo: average.isDemo,
+        detectionCounts: average.detectionCounts,
+        segmentationAreas: average.segmentationAreas,
+        classConfidences: average.classConfidences,
+        skinTypeConfidence: average.skinTypeConfidence,
+        modelVersion: average.modelVersion,
+        quality: average.modelConnected ? 'pass' : 'unchecked',
+        faceRect: average.faceRect,
+        visualBoxes: average.visualBoxes,
+        imageWidth: average.imageWidth,
+        imageHeight: average.imageHeight,
+      );
+      await SkinJourneyStore.instance.syncNow();
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
-    SkinJourneyStore.instance.finalizeCurrentJourney(name);
-    Navigator.of(context).pop(true);
   }
 
   @override

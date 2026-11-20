@@ -1,7 +1,19 @@
+import 'dart:typed_data';
+
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:provider/provider.dart';
 import 'package:skinsight/core/api/api_client.dart';
 import 'package:skinsight/core/api/supabase_direct.dart';
+import 'package:skinsight/core/theme/skin_theme.dart';
 import 'package:skinsight/features/education/data/recommendation_service.dart';
+import 'package:skinsight/features/history/data/skin_history_repository.dart';
+import 'package:skinsight/features/history/presentation/skin_history_page.dart';
+import 'package:skinsight/features/journeys/data/skin_journey_store.dart';
+import 'package:skinsight/features/profile/models/profile_data.dart';
+import 'package:skinsight/features/profile/presentation/skin_account_page.dart';
 import 'package:skinsight/features/scan/models/skin_analysis.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -132,5 +144,128 @@ void main() {
       expect(restoredRec.routine.single.stepName, 'Cleanser');
       expect(restoredRec.findingsEducation.single.finding, 'Acne');
     });
+  });
+
+  group('ApiClient circuit-breaker & consecutive scan persistence', () {
+    test('circuit-breaker trips on connection failure and resets cleanly', () async {
+      final failingHttp = MockClient((_) async {
+        throw http.ClientException('Connection refused');
+      });
+      final api = ApiClient(
+        client: failingHttp,
+        baseUrl: 'http://10.0.2.2:8000',
+        tokenProvider: () => 'fake-token',
+      );
+      expect(api.shouldAttemptBackend, isTrue);
+
+      await expectLater(api.get('/health'), throwsA(isA<ApiException>()));
+      // Setelah gagal koneksi, langsung skip backend (0ms) agar fallback ke Supabase cepat.
+      expect(api.shouldAttemptBackend, isFalse);
+
+      api.resetCircuitBreaker();
+      expect(api.shouldAttemptBackend, isTrue);
+    });
+
+    test('consecutive scans on new draft journey all save and become visible', () async {
+      final store = SkinJourneyStore.instance..resetForTesting();
+      final history = SkinHistoryRepository.instance..clearLocal();
+      addTearDown(() {
+        store.resetForTesting();
+        history.clearLocal();
+      });
+
+      // Mulai perjalanan baru (awalnya isDraft = true) lalu isi kuesioner.
+      store.beginNewJourney(name: 'Uji Berturut');
+      store.saveQuestionnaire({
+        'M01': 'Tidak',
+        'M02': 'Rutin',
+        'M03': 'Tidak',
+        'M04': 'Tidak',
+        'M05': 'Rutin',
+        'M06': 'Tidak',
+        'M07': 'Acne',
+      }, photoConsent: true);
+
+      final sampleBytes = Uint8List.fromList([137, 80, 78, 71]);
+      for (var i = 0; i < 3; i++) {
+        await history.saveLatest(
+          sampleBytes,
+          findings: const ['Acne'],
+          skinType: 'Combination',
+          modelConnected: true,
+          detectionCounts: {'Acne': i + 1},
+          quality: 'pass',
+        );
+      }
+
+      expect(history.records.length, 3);
+      expect(store.selectedJourney.isDraft, isFalse);
+      expect(store.selectedJourney.isVisibleInCatalog, isTrue);
+      expect(store.photos.length, 3);
+      expect(store.journeys.any((j) => j.name == 'Uji Berturut'), isTrue);
+    });
+
+    testWidgets(
+      'redesigned history shows localized Indonesian badges and deletes with confirmation',
+      (tester) async {
+        final history = SkinHistoryRepository.instance..clearLocal();
+        final store = SkinJourneyStore.instance..resetForTesting();
+        addTearDown(() {
+          history.clearLocal();
+          store.resetForTesting();
+        });
+
+        final saved = await history.saveLatest(
+          null,
+          findings: const ['Acne', 'PIH'],
+          skinType: 'Combination',
+          modelConnected: true,
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: SkinTokens.theme(),
+            home: const SkinHistoryPage(),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Jerawat & Noda Gelap (PIH)'), findsOneWidget);
+        expect(find.text('2 temuan'), findsOneWidget);
+        expect(find.text('Kombinasi'), findsOneWidget);
+
+        await tester.tap(find.byKey(Key('history-delete-${saved.id}')));
+        await tester.pumpAndSettle();
+        expect(find.text('Hapus riwayat scan?'), findsOneWidget);
+
+        await tester.tap(find.byKey(const Key('confirm-delete-scan')));
+        await tester.pumpAndSettle();
+
+        expect(history.records, isEmpty);
+        expect(find.text('Belum ada aktivitas'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'redesigned account page marks email read-only as Terverifikasi',
+      (tester) async {
+        final profile = ProfileData();
+        await tester.pumpWidget(
+          ChangeNotifierProvider<ProfileData>.value(
+            value: profile,
+            child: MaterialApp(
+              theme: SkinTokens.theme(),
+              home: const SkinAccountPage(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Terverifikasi'), findsOneWidget);
+        expect(find.byKey(const Key('edit-profile-email')), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
   });
 }

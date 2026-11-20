@@ -160,7 +160,7 @@ class _SkinQuizPageState extends State<SkinQuizPage> {
     final answersPayload = Map<String, dynamic>.of(_answers);
     if (ApiClient.instance.isAvailable || SupabaseDirect.isSignedIn) {
       unawaited(() async {
-        if (ApiClient.instance.isAvailable) {
+        if (ApiClient.instance.shouldAttemptBackend) {
           try {
             await ApiClient.instance
                 .post('/quiz/submit', body: {'answers': answersPayload});
