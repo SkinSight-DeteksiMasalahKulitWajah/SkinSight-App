@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:skinsight/main.dart';
-import 'package:skinsight/models/auth_session.dart';
+import 'package:skinsight/features/auth/models/auth_session.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

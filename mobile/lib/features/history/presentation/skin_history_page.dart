@@ -29,6 +29,10 @@ class _SkinHistoryPageState extends State<SkinHistoryPage> {
     SkinHistoryRepository.instance.fetchHistory().then((_) {
       if (mounted) setState(() => _loading = false);
     });
+    // Segarkan dari database agar riwayat dari perangkat lain ikut tampil.
+    SkinHistoryRepository.instance.pullFromServer().then<void>((_) {}, onError: (Object e) {
+      debugPrint('Muat riwayat dari server gagal: $e');
+    });
   }
 
   String _date(DateTime d) =>

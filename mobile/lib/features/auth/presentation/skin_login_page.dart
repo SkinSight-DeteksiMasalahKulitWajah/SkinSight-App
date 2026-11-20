@@ -1,9 +1,13 @@
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import'../../../core/app_assets.dart';
-import'../data/auth_service.dart';
+import '../../../core/api/cloud_sync.dart';
+import '../../../core/app_assets.dart';
+import '../../profile/models/profile_data.dart';
+import '../data/auth_service.dart';
 import'../models/auth_session.dart';
 import'../../../core/theme/skin_theme.dart';
 import'../../../shared/widgets/skin_page_background.dart';
@@ -81,6 +85,8 @@ class _SkinLoginPageState extends State<SkinLoginPage> {
         );
       }
       if (!mounted) return;
+      ProfileData.current?.syncFromAuthImmediate();
+      unawaited(CloudSync.instance.refresh());
       AuthSession.instance.signIn();
       final destination = _destinationAfterAuthentication;
       Navigator.of(context).pushNamedAndRemoveUntil(destination, (_) => false);
@@ -107,6 +113,8 @@ class _SkinLoginPageState extends State<SkinLoginPage> {
       if (!auth.isAuthenticated) {
         return; // Dibatalkan, jangan pindah halaman.
       }
+      ProfileData.current?.syncFromAuthImmediate();
+      unawaited(CloudSync.instance.refresh());
       AuthSession.instance.signIn();
       final destination = _destinationAfterAuthentication;
       Navigator.of(context).pushNamedAndRemoveUntil(destination, (_) => false);

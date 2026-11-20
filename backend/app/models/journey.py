@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime, date
 from typing import List, Optional
-from sqlalchemy import String, Integer, Text, Date, DateTime, ForeignKey, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import String, Integer, Text, Date, DateTime, Boolean, ForeignKey, func
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
@@ -22,6 +22,10 @@ class SkinJourney(Base):
     status: Mapped[str] = mapped_column(String(30), default="active", nullable=False)  # active, completed, paused
     start_date: Mapped[date] = mapped_column(Date, default=date.today, nullable=False)
     end_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    is_pinned: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    # State tambahan aplikasi (kuesioner, feedback, kondisi tertutup, baseline, dll.)
+    meta: Mapped[dict] = mapped_column(JSONB, default=dict, server_default="{}")
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -48,6 +52,7 @@ class JourneyCheckin(Base):
     photo_url: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     condition_rating: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # Skala 1 - 5
+    meta: Mapped[dict] = mapped_column(JSONB, default=dict, server_default="{}")
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

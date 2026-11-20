@@ -39,9 +39,16 @@ class Settings(BaseSettings):
     SUPABASE_SERVICE_ROLE_KEY: str = ""
     SUPABASE_JWT_SECRET: str = ""
 
+    # Email admin (dipisah koma) yang boleh mengelola katalog & artikel
+    ADMIN_EMAILS: str = ""
+
     # ML Model Configuration
-    ML_MODEL_PATH: str = "models/skin_classifier.tflite"
-    USE_MOCK_ML: bool = True
+    ML_MODEL_PATH: str = "models/all_conditions_detect_float32.tflite"
+    USE_MOCK_ML: bool = False
+
+    # LLM (Gemini API) Configuration
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-3.5-flash"
 
     model_config = SettingsConfigDict(
         env_file=".env",

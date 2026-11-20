@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:skinsight/pages/skin_education_page.dart';
-import 'package:skinsight/theme/skin_theme.dart';
+import 'package:skinsight/features/education/presentation/skin_education_page.dart';
+import 'package:skinsight/core/theme/skin_theme.dart';
 
 void main() {
   Widget buildPage() => MaterialApp(

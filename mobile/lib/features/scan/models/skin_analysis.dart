@@ -74,6 +74,12 @@ class SkinAnalysis {
   final int? imageWidth;
   final int? imageHeight;
 
+  /// Path foto di Supabase Storage (`<user_id>/<file>`), null bila belum diunggah.
+  final String? imagePath;
+
+  /// Cache JSON hasil rekomendasi LLM terakhir untuk scan ini (disimpan di `meta`).
+  final Map<String, dynamic>? llmRecommendation;
+
   const SkinAnalysis({
     required this.id,
     required this.analyzedAt,
@@ -97,6 +103,8 @@ class SkinAnalysis {
     this.visualBoxes = const [],
     this.imageWidth,
     this.imageHeight,
+    this.imagePath,
+    this.llmRecommendation,
   });
 
   SkinAnalysis copyWith({
@@ -105,6 +113,8 @@ class SkinAnalysis {
     List<SkinVisualBox>? visualBoxes,
     int? imageWidth,
     int? imageHeight,
+    String? imagePath,
+    Map<String, dynamic>? llmRecommendation,
   }) {
     return SkinAnalysis(
       id: id,
@@ -129,6 +139,96 @@ class SkinAnalysis {
       visualBoxes: visualBoxes ?? this.visualBoxes,
       imageWidth: imageWidth ?? this.imageWidth,
       imageHeight: imageHeight ?? this.imageHeight,
+      imagePath: imagePath ?? this.imagePath,
+      llmRecommendation: llmRecommendation ?? this.llmRecommendation,
+    );
+  }
+
+  Map<String, dynamic> buildMeta({String quality = 'unchecked'}) => {
+        'skin_type_confidence': skinTypeConfidence,
+        'quality': quality,
+        'image_width': imageWidth,
+        'image_height': imageHeight,
+        if (faceRect != null)
+          'face_rect': [
+            faceRect!.left,
+            faceRect!.top,
+            faceRect!.right,
+            faceRect!.bottom,
+          ],
+        'visual_boxes': [for (final b in visualBoxes) b.toJson()],
+        if (llmRecommendation != null) 'llm_recommendation': llmRecommendation,
+      };
+
+  /// Payload untuk `POST /scan/records` di backend.
+  Map<String, dynamic> toApiJson({String quality = 'unchecked'}) => {
+        'id': id,
+        'analyzed_at': analyzedAt.toUtc().toIso8601String(),
+        'image_url': imagePath,
+        'score': score,
+        'title': title,
+        'skin_type': skinType,
+        'oil': oil,
+        'pores': pores,
+        'acne': acne,
+        'redness': redness,
+        'visual_findings': visualFindings,
+        'detection_counts': detectionCounts,
+        'segmentation_areas': segmentationAreas,
+        'class_confidences': classConfidences,
+        'model_version': modelVersion,
+        'model_connected': modelConnected,
+        'is_demo': isDemo,
+        'meta': buildMeta(quality: quality),
+      };
+
+  /// Membangun dari respons backend (`ScanRecordOut`); foto belum terunduh.
+  factory SkinAnalysis.fromApiJson(Map<String, dynamic> json) {
+    final meta = (json['meta'] as Map?)?.cast<String, dynamic>() ?? const {};
+    final face = (meta['face_rect'] as List?)?.cast<num>();
+    final rawRec = meta['llm_recommendation'];
+    return SkinAnalysis(
+      id: json['id'] as String,
+      analyzedAt: DateTime.parse(json['analyzed_at'] as String).toLocal(),
+      score: (json['score'] as num?)?.toInt() ?? 0,
+      title: json['title'] as String,
+      skinType: json['skin_type'] as String,
+      oil: (json['oil'] as num?)?.toInt() ?? 0,
+      pores: (json['pores'] as num?)?.toInt() ?? 0,
+      acne: (json['acne'] as num?)?.toInt() ?? 0,
+      redness: (json['redness'] as num?)?.toInt() ?? 0,
+      visualFindings:
+          ((json['visual_findings'] as List?) ?? const []).cast<String>(),
+      modelConnected: json['model_connected'] as bool? ?? false,
+      isDemo: json['is_demo'] as bool? ?? false,
+      detectionCounts: {
+        for (final e in ((json['detection_counts'] as Map?) ?? const {}).entries)
+          e.key as String: (e.value as num).toInt(),
+      },
+      segmentationAreas: {
+        for (final e
+            in ((json['segmentation_areas'] as Map?) ?? const {}).entries)
+          e.key as String: (e.value as num).toDouble(),
+      },
+      classConfidences: {
+        for (final e in ((json['class_confidences'] as Map?) ?? const {}).entries)
+          e.key as String: (e.value as num).toDouble(),
+      },
+      skinTypeConfidence: (meta['skin_type_confidence'] as num?)?.toDouble(),
+      modelVersion: json['model_version'] as String?,
+      faceRect: face == null || face.length < 4
+          ? null
+          : Rect.fromLTRB(face[0].toDouble(), face[1].toDouble(),
+              face[2].toDouble(), face[3].toDouble()),
+      visualBoxes: [
+        for (final b in (meta['visual_boxes'] as List?) ?? const [])
+          SkinVisualBox.fromJson((b as Map).cast<String, dynamic>()),
+      ],
+      imageWidth: (meta['image_width'] as num?)?.toInt(),
+      imageHeight: (meta['image_height'] as num?)?.toInt(),
+      imagePath: json['image_url'] as String?,
+      llmRecommendation:
+          rawRec is Map ? Map<String, dynamic>.from(rawRec) : null,
     );
   }
 }

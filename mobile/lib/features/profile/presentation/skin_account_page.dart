@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import'../models/profile_data.dart';
+import '../../../core/api/supabase_direct.dart';
+import '../models/profile_data.dart';
 import'../../../core/theme/skin_theme.dart';
 import'../../../shared/widgets/asset_images.dart';
 import'../../../shared/widgets/skin_page_background.dart';
@@ -195,7 +196,7 @@ class _PersonalDataCard extends StatelessWidget {
                 editKey: const Key('edit-profile-phone'),
                 icon: Icons.phone_outlined,
                 label: 'Nomor telepon',
-                value: profile.phone,
+                value: profile.phone.isEmpty ? 'Belum diisi' : profile.phone,
                 onEdit: () => _editValue(
                   context,
                   title: 'Ubah nomor telepon',
@@ -463,6 +464,7 @@ class _PasswordDialogState extends State<_PasswordDialog> {
   final _newPassword = TextEditingController();
   final _confirmation = TextEditingController();
   String? _error;
+  bool _saving = false;
 
   @override
   void dispose() {
@@ -471,13 +473,31 @@ class _PasswordDialogState extends State<_PasswordDialog> {
     super.dispose();
   }
 
-  void _save() {
+  Future<void> _save() async {
+    if (_saving) return;
     if (_newPassword.text.length < 8) {
       setState(() => _error = 'Minimal 8 karakter.');
-    } else if (_newPassword.text != _confirmation.text) {
+      return;
+    }
+    if (_newPassword.text != _confirmation.text) {
       setState(() => _error = 'Password tidak sama.');
-    } else {
-      Navigator.of(context).pop(true);
+      return;
+    }
+    setState(() {
+      _error = null;
+      _saving = true;
+    });
+    try {
+      if (SupabaseDirect.isSignedIn) {
+        await SupabaseDirect.updatePassword(_newPassword.text);
+      }
+      if (mounted) Navigator.of(context).pop(true);
+    } on Object catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _error = 'Gagal memperbarui password: $e';
+      });
     }
   }
 

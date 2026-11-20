@@ -1,14 +1,31 @@
+import 'dart:async';
 import 'dart:ui' show Rect;
 import 'package:flutter/foundation.dart';
-import'../../scan/models/skin_analysis.dart';
-import'../../journeys/data/skin_journey_store.dart';
+import '../../../core/api/api_client.dart';
+import '../../../core/api/cloud_storage.dart';
+import '../../../core/api/cloud_sync.dart';
+import '../../../core/api/supabase_direct.dart';
+import '../../scan/models/skin_analysis.dart';
+import '../../journeys/data/skin_journey_store.dart';
 
-/// Real user actions only; no preloaded fake scores or skin findings.
-/// In-memory MVP demo; persistent storage is a backend integration task.
-class SkinHistoryRepository extends ChangeNotifier {
+/// Riwayat scan. Sumber kebenaran adalah database Supabase (tabel `scan_records`)
+/// lewat backend FastAPI dengan fallback otomatis langsung ke Supabase SDK.
+/// Daftar di memori hanya cache; tanpa sesi login (mis. widget test) perilakunya
+/// hanya di memori.
+class SkinHistoryRepository extends ChangeNotifier implements CloudSyncable {
   SkinHistoryRepository._();
   static final SkinHistoryRepository instance = SkinHistoryRepository._();
   final List<SkinAnalysis> _records = [];
+  final List<Future<void>> _inFlight = [];
+
+  ApiClient get _api => ApiClient.instance;
+
+  bool get _canSync => _api.isAvailable || SupabaseDirect.isSignedIn;
+
+  void _track(Future<void> task) {
+    _inFlight.add(task);
+    task.whenComplete(() => _inFlight.remove(task));
+  }
 
   Future<List<SkinAnalysis>> fetchHistory(
       {DateTime? date, bool newestFirst = true}) async {
@@ -88,6 +105,189 @@ class SkinHistoryRepository extends ChangeNotifier {
           imageHeight: imageHeight);
     }
     notifyListeners();
+    _track(_push(record, quality: quality));
     return record;
+  }
+
+  /// Simpan hasil rekomendasi LLM ke dalam record scan (`meta.llm_recommendation`).
+  Future<void> updateRecommendation(
+    String scanId,
+    Map<String, dynamic> recommendationJson,
+  ) async {
+    final index = _records.indexWhere((r) => r.id == scanId);
+    if (index < 0) return;
+    final updated =
+        _records[index].copyWith(llmRecommendation: recommendationJson);
+    _records[index] = updated;
+    notifyListeners();
+
+    if (!_canSync) return;
+    final task = _pushMeta(updated);
+    _track(task);
+    await task;
+  }
+
+  Future<void> _pushMeta(SkinAnalysis record) async {
+    final meta = record.buildMeta(
+      quality: record.modelConnected ? 'pass' : 'unchecked',
+    );
+    if (_api.isAvailable) {
+      try {
+        await _api.patch('/scan/history/${record.id}', body: {'meta': meta});
+        return;
+      } on Object catch (e) {
+        debugPrint('Simpan meta scan via backend gagal, fallback ke Supabase: $e');
+      }
+    }
+    try {
+      await SupabaseDirect.updateScanRecord(record.id, {'meta': meta});
+    } on Object catch (e) {
+      debugPrint('Simpan meta scan ke Supabase gagal: $e');
+    }
+  }
+
+  /// Hapus satu scan dari riwayat (lokal dan database).
+  Future<void> delete(String id) async {
+    final index = _records.indexWhere((r) => r.id == id);
+    if (index < 0) return;
+    final removed = _records.removeAt(index);
+    notifyListeners();
+    if (!_canSync) return;
+    final task = _deleteRemote(removed);
+    _track(task);
+    await task;
+  }
+
+  Future<void> _deleteRemote(SkinAnalysis removed) async {
+    var deletedOnBackend = false;
+    if (_api.isAvailable) {
+      try {
+        await _api.delete('/scan/history/${removed.id}');
+        deletedOnBackend = true;
+      } on Object catch (e) {
+        debugPrint('Hapus scan di backend gagal, fallback ke Supabase: $e');
+      }
+    }
+    if (!deletedOnBackend) {
+      try {
+        await SupabaseDirect.deleteScanRecord(removed.id);
+      } on Object catch (e) {
+        debugPrint('Hapus scan di Supabase gagal: $e');
+      }
+    }
+    final path = removed.imagePath;
+    if (path != null) await CloudStorage.remove([path]);
+  }
+
+  // ---------------------------------------------------------------- sync
+
+  Future<void> _push(SkinAnalysis record, {String quality = 'unchecked'}) async {
+    if (!_canSync) return;
+    try {
+      var path = record.imagePath;
+      final bytes = record.selfieBytes;
+      if (path == null && bytes != null) {
+        path = await CloudStorage.upload('${record.id}.jpg', bytes);
+        if (path != null) _replace(record.copyWith(imagePath: path));
+      }
+      final current = _records.firstWhere((r) => r.id == record.id,
+          orElse: () => record);
+      final body = current.toApiJson(quality: quality);
+
+      if (_api.isAvailable) {
+        try {
+          await _api.post('/scan/records', body: body);
+          return;
+        } on Object catch (e) {
+          debugPrint('Simpan scan via backend gagal, fallback ke Supabase: $e');
+        }
+      }
+      await SupabaseDirect.upsertScanRecord(body);
+    } on Object catch (e) {
+      debugPrint('Simpan scan ke server gagal: $e');
+    }
+  }
+
+  void _replace(SkinAnalysis updated) {
+    final i = _records.indexWhere((r) => r.id == updated.id);
+    if (i >= 0) _records[i] = updated;
+  }
+
+  @override
+  Future<void> flushPending() async {
+    if (_inFlight.isEmpty) return;
+    await Future.wait(List<Future<void>>.of(_inFlight));
+  }
+
+  @override
+  Future<void> pullFromServer() async {
+    if (!_canSync) return;
+    List<SkinAnalysis>? remote;
+
+    if (_api.isAvailable) {
+      try {
+        final collected = <SkinAnalysis>[];
+        var offset = 0;
+        while (true) {
+          final page = await _api.get('/scan/history',
+              query: {'limit': 100, 'offset': offset}) as Map<String, dynamic>;
+          final items = (page['items'] as List).cast<Map<String, dynamic>>();
+          collected.addAll(items.map(SkinAnalysis.fromApiJson));
+          offset += items.length;
+          if (items.isEmpty || offset >= (page['total'] as int)) break;
+        }
+        remote = collected;
+      } on Object catch (e) {
+        debugPrint('Tarik riwayat scan via backend gagal, fallback ke Supabase: $e');
+      }
+    }
+
+    if (remote == null && SupabaseDirect.isSignedIn) {
+      final rows = await SupabaseDirect.fetchScanHistory();
+      remote = rows.map(SkinAnalysis.fromApiJson).toList();
+    }
+    if (remote == null) return;
+
+    final localById = {for (final r in _records) r.id: r};
+    final remoteIds = {for (final r in remote) r.id};
+    final merged = [
+      for (final r in remote)
+        r.copyWith(selfieBytes: localById[r.id]?.selfieBytes),
+    ];
+    // Scan yang dibuat saat offline dan belum ada di server: kirim sekarang.
+    final unsynced = _records.where((r) => !remoteIds.contains(r.id)).toList();
+    merged.addAll(unsynced);
+    merged.sort((a, b) => b.analyzedAt.compareTo(a.analyzedAt));
+    _records
+      ..clear()
+      ..addAll(merged);
+    notifyListeners();
+
+    for (final r in unsynced) {
+      _track(_push(r));
+    }
+    unawaited(_downloadMissingPhotos());
+  }
+
+  Future<void> _downloadMissingPhotos() async {
+    final pending = _records
+        .where((r) => r.selfieBytes == null && r.imagePath != null)
+        .toList();
+    for (var i = 0; i < pending.length; i += 3) {
+      final batch = pending.skip(i).take(3);
+      await Future.wait([
+        for (final r in batch)
+          CloudStorage.download(r.imagePath!).then((bytes) {
+            if (bytes != null) _replace(r.copyWith(selfieBytes: bytes));
+          }),
+      ]);
+      notifyListeners();
+    }
+  }
+
+  @override
+  void clearLocal() {
+    _records.clear();
+    notifyListeners();
   }
 }
