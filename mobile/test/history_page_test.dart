@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:skinsight/data/skin_history_repository.dart';
+import 'package:skinsight/features/history/data/skin_history_repository.dart';
 import 'package:skinsight/main.dart';
-import 'package:skinsight/pages/skin_history_page.dart';
+import 'package:skinsight/features/history/presentation/skin_history_page.dart';
 
 import 'test_helpers.dart';
 

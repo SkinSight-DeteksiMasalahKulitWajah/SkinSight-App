@@ -97,8 +97,8 @@ class _EducationResultScreenState extends State<EducationResultScreen> {
 
   String _amount(String name) => SkinJourneyStore.detectionClasses
           .contains(name)
-      ? '${analysis.detectionCounts[name] ?? 0} titik'
-      : '${((analysis.segmentationAreas[name] ?? 0) * 100).toStringAsFixed(0)}%';
+      ? '${widget.analysis.detectionCounts[name] ?? 0} titik'
+      : '${((widget.analysis.segmentationAreas[name] ?? 0) * 100).toStringAsFixed(0)}%';
 
   @override
   Widget build(BuildContext context) {

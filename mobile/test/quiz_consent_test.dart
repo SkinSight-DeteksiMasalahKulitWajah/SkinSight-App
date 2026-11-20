@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:skinsight/data/skin_journey_store.dart';
-import 'package:skinsight/pages/skin_quiz_page.dart';
+import 'package:skinsight/features/journeys/data/skin_journey_store.dart';
+import 'package:skinsight/features/scan/presentation/skin_quiz_page.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

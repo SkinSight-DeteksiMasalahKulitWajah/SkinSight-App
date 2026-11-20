@@ -16,6 +16,8 @@ class Profile(Base):
     )
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     full_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    phone: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    avatar_url: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
     gender: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)  # pria, wanita, lainnya
     birth_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     dominant_skin_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # Normal, Oily, Dry, Kombinasi, Sensitif

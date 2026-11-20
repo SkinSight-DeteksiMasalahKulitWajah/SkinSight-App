@@ -10,6 +10,7 @@ class HealthCheckResponse(BaseModel):
     app_name: str = Field(..., example="SkinSight API")
     version: str = Field(..., example="1.0.0")
     environment: str = Field(..., example="development")
+    database: str = Field(default="unknown", example="ok")
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -21,3 +22,11 @@ class ApiResponse(BaseModel, Generic[T]):
     success: bool = True
     message: Optional[str] = None
     data: Optional[T] = None
+
+
+class Page(BaseModel, Generic[T]):
+    """Envelope paginasi standar."""
+    items: list[T]
+    total: int
+    limit: int
+    offset: int

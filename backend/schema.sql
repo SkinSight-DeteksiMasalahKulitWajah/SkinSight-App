@@ -3,7 +3,7 @@
 
 -- 1. Profiles (Sinkron dengan auth.users)
 CREATE TABLE IF NOT EXISTS public.profiles (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     email VARCHAR(255) UNIQUE NOT NULL,
     full_name VARCHAR(255),
     gender VARCHAR(20),
@@ -107,3 +107,46 @@ CREATE TABLE IF NOT EXISTS public.product_ingredients (
     ingredient_id UUID NOT NULL REFERENCES public.ingredients(id) ON DELETE CASCADE,
     PRIMARY KEY (product_id, ingredient_id)
 );
+
+-- ============================================================
+-- 0002: Dukungan CRUD (aman dijalankan ulang / idempotent)
+-- ============================================================
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS phone VARCHAR(30);
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(1024);
+
+ALTER TABLE public.scan_records ADD COLUMN IF NOT EXISTS meta JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+ALTER TABLE public.skin_journeys ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE public.skin_journeys ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE public.skin_journeys ADD COLUMN IF NOT EXISTS meta JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE public.journey_checkins ADD COLUMN IF NOT EXISTS meta JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+-- 9. Articles (Edukasi)
+CREATE TABLE IF NOT EXISTS public.articles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    slug VARCHAR(150) UNIQUE NOT NULL,
+    topic VARCHAR(50) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    summary TEXT NOT NULL DEFAULT '',
+    body TEXT NOT NULL DEFAULT '',
+    key_points JSONB NOT NULL DEFAULT '[]'::jsonb,
+    read_time VARCHAR(30),
+    source VARCHAR(255),
+    image_url VARCHAR(1024),
+    is_published BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ix_articles_slug ON public.articles(slug);
+CREATE INDEX IF NOT EXISTS ix_articles_topic ON public.articles(topic);
+
+-- Row Level Security: backend memakai koneksi langsung (role postgres, melewati RLS).
+-- RLS tanpa policy memblokir akses langsung lewat Data API (anon key) ke data pribadi.
+ALTER TABLE public.profiles            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.quiz_submissions    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.scan_records        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.skin_journeys       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.journey_checkins    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ingredients         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.products            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.product_ingredients ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.articles            ENABLE ROW LEVEL SECURITY;
