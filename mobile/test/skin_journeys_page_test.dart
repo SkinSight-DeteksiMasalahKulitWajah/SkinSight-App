@@ -232,4 +232,27 @@ void main() {
     expect(find.text('Journey Sensitif'), findsOneWidget);
     expect(find.text('Batal'), findsOneWidget);
   });
+
+  testWidgets(
+      'moving a journey to trash shows an auto-dismissing snackbar promptly',
+      (tester) async {
+    final journey = store.beginNewJourney(name: 'Journey Cepat');
+    store.finalizeCurrentJourney('Journey Cepat');
+    await pumpPage(tester);
+
+    await tester.tap(find.byKey(Key('journey-menu-${journey.id}')));
+    await tester.pumpAndSettle();
+    final trashAction = find.byKey(Key('trash-journey-${journey.id}'));
+    await tester.ensureVisible(trashAction);
+    await tester.tap(trashAction);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Perjalanan dipindahkan ke sampah.'), findsOneWidget);
+    expect(find.text('Pulihkan'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Perjalanan dipindahkan ke sampah.'), findsNothing);
+  });
 }

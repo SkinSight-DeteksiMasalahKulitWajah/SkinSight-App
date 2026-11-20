@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/skin_theme.dart';
 import '../../../shared/widgets/design_system/skin_ui.dart';
+import '../../../shared/widgets/shimmer_skeleton.dart';
 import '../../../shared/widgets/skin_page_background.dart';
 import '../../../shared/widgets/skin_page_header.dart';
 import '../../history/data/skin_history_repository.dart';
@@ -141,11 +142,18 @@ class _EducationResultScreenState extends State<EducationResultScreen> {
                 builder: (context, _) {
                   return Column(
                     children: [
-                      const SkinPageHeader(
+                      SkinPageHeader(
                         title: 'Rekomendasi Perawatan',
                         subtitle:
-                            'Panduan personal dari AI berdasarkan scan & profil',
-                        backKey: Key('education-result-back'),
+                            'Panduan personal AI berdasarkan scan & profil',
+                        backKey: const Key('education-result-back'),
+                        trailing: SkinCircleButton(
+                          key: const Key('education-result-refresh'),
+                          tooltip: 'Muat ulang rekomendasi AI',
+                          icon: Icons.refresh_rounded,
+                          iconColor: SkinTokens.primary,
+                          onPressed: _loading ? null : _fetchRecommendation,
+                        ),
                       ),
                       Expanded(
                         child: _loading
@@ -179,43 +187,41 @@ class _EducationResultScreenState extends State<EducationResultScreen> {
 
   // ─── Loading State ───────────────────────────────────────────────
 
-  Widget _buildLoading() => const Center(
-        child: Padding(
-          padding: EdgeInsets.all(40),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: 48,
-                height: 48,
-                child: CircularProgressIndicator(
-                  strokeWidth: 3,
-                  color: SkinTokens.primary,
+  Widget _buildLoading() => ListView(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+        children: const [
+          ShimmerLoading(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SkeletonBox(
+                  height: 112,
+                  borderRadius: BorderRadius.all(Radius.circular(22)),
                 ),
-              ),
-              SizedBox(height: 20),
-              Text(
-                'Menyusun rekomendasi perawatan personal...',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: SkinTokens.ink,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
+                SizedBox(height: 16),
+                SkeletonBox(
+                  height: 156,
+                  borderRadius: BorderRadius.all(Radius.circular(22)),
                 ),
-              ),
-              SizedBox(height: 8),
-              Text(
-                'AI sedang menganalisis profil kulit dan jawaban kuesioner Anda.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: SkinTokens.muted,
-                  fontSize: 13,
-                  height: 1.4,
+                SizedBox(height: 16),
+                SkeletonBox(
+                  height: 196,
+                  borderRadius: BorderRadius.all(Radius.circular(22)),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+          SizedBox(height: 16),
+          Text(
+            'Menyusun rekomendasi perawatan personal...',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: SkinTokens.muted,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       );
 
   // ─── LLM Result ──────────────────────────────────────────────────
@@ -236,69 +242,68 @@ class _EducationResultScreenState extends State<EducationResultScreen> {
 
         const SizedBox(height: 20),
 
-        // ─ Ringkasan AI ─
-        SkinCard(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    gradient: SkinTokens.brandGradient,
-                    shape: BoxShape.circle,
+        // ─ Ringkasan AI (Deep Botanical Canopy) ─
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: SkinTokens.deepGradient,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: SkinTokens.glow(SkinTokens.hero, opacity: .2),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(children: [
+                  Icon(Icons.auto_awesome,
+                      size: 18, color: Color(0xFFD4E8E0)),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Ringkasan AI',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                        )),
                   ),
-                  child: const Icon(Icons.auto_awesome,
-                      size: 18, color: Colors.white),
-                ),
-                const SizedBox(width: 10),
-                const Expanded(
-                  child: Text('Ringkasan AI',
-                      style: TextStyle(
-                        color: SkinTokens.ink,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16,
-                      )),
-                ),
-              ]),
-              const SizedBox(height: 12),
-              Text(
-                rec.summary,
-                style: const TextStyle(
-                  color: SkinTokens.ink,
-                  fontSize: 14,
-                  height: 1.55,
-                ),
-              ),
-              if (rec.skinTypeNote.isNotEmpty) ...[
+                ]),
                 const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: SkinTokens.mint,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(Icons.water_drop_outlined,
-                          size: 16, color: SkinTokens.primary),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(rec.skinTypeNote,
-                            style: const TextStyle(
-                              color: SkinTokens.primaryDark,
-                              fontSize: 13,
-                              height: 1.4,
-                            )),
-                      ),
-                    ],
+                Text(
+                  rec.summary,
+                  style: const TextStyle(
+                    color: Color(0xFFEAF4F0),
+                    fontSize: 14,
+                    height: 1.55,
                   ),
                 ),
+                if (rec.skinTypeNote.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: .12),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.water_drop_outlined,
+                            size: 16, color: Color(0xFFD4E8E0)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(rec.skinTypeNote,
+                              style: const TextStyle(
+                                color: Color(0xFFEAF4F0),
+                                fontSize: 13,
+                                height: 1.4,
+                              )),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
 

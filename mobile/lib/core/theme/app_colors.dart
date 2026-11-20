@@ -6,39 +6,48 @@ import 'package:flutter/painting.dart';
 /// sini, dan widget membaca warna lewat tema atau kelas ini, bukan literal
 /// yang tersebar.
 abstract final class AppColors {
-  // ── Latar "mist" ───────────────────────────────────────────────────────
-  static const mistTop = Color(0xFFE8EEEA);
-  static const mistBottom = Color(0xFFF3F6F4);
+  // ── Latar "mist" klinis-botani (WCAG AA/AAA terverifikasi) ────────────
+  static const mistTop = Color(0xFFF0F6F3);
+  static const mistBottom = Color(0xFFF6F9F7);
 
-  // ── Aksen ──────────────────────────────────────────────────────────────
-  /// Hampir hitam: tombol utama dan status aktif.
-  static const darkAccent = Color(0xFF1A1A1A);
+  // ── Aksen merek ────────────────────────────────────────────────────────
+  /// Hijau hutan klinis: tombol utama, fokus, dan status aktif (8.51:1).
+  static const darkAccent = Color(0xFF1E5643);
 
-  /// Aqua-sage lembut: lencana ikon dan cincin progres.
-  static const aquaSage = Color(0xFFBFD8D2);
+  /// Kanopi gelap untuk permukaan aksi utama berkontras tinggi (12.35:1).
+  static const forestDeep = Color(0xFF163B2F);
+
+  /// Aqua-sage lembut untuk permukaan indikator & status aktif ringan.
+  static const aquaSage = Color(0xFFD9EAE3);
+
+  /// Mint sangat lembut untuk pill aktif & kotak ikon.
+  static const mintTint = Color(0xFFE3F1EB);
+
+  /// Permukaan sekunder halus untuk strip metrik & jadwal.
+  static const surfaceTint = Color(0xFFEAF2EE);
 
   /// Hijau lidah buaya untuk ilustrasi botani.
-  static const aloe = Color(0xFF5E9B6B);
+  static const aloe = Color(0xFF3E8464);
 
-  // ── Teks ───────────────────────────────────────────────────────────────
-  static const textPrimary = Color(0xFF1F2A27);
-  static const textSecondary = Color(0xFF6B7B76);
+  // ── Teks (WCAG 2.2 AA/AAA) ─────────────────────────────────────────────
+  /// Teks utama (15.66:1 di mist, 16.77:1 di putih).
+  static const textPrimary = Color(0xFF14201B);
 
-  /// Teks sekunder berukuran kecil (< 18 px) di atas kaca putih.
-  /// [textSecondary] hanya ±4,3:1 di sana (gagal WCAG AA 4,5:1), nilai ini
-  /// ±5,4:1. [textSecondary] tetap dipakai untuk teks besar & ikon.
-  static const textSecondaryOnGlass = Color(0xFF5B6B66);
+  /// Teks sekunder (6.46:1 di putih, 6.03:1 di mist).
+  static const textSecondary = Color(0xFF51625C);
 
-  // ── Kaca ───────────────────────────────────────────────────────────────
+  /// Teks sekunder di atas permukaan tint/kaca (≥ 5.6:1).
+  static const textSecondaryOnGlass = Color(0xFF475852);
+
+  // ── Permukaan & garis tepi ─────────────────────────────────────────────
   static const white = Color(0xFFFFFFFF);
-  static const glassFill = Color(0x9EFFFFFF); // putih 62 %
-  static const glassFillStrong = Color(0xBFFFFFFF); // putih 75 %
-  static const glassBorder = Color(0x99FFFFFF); // putih 60 %
-  static const glassShadow = Color(0x0F000000); // hitam 6 %
+  static const glassFill = Color(0xFAFFFFFF); // putih 98 % — tajam & terbaca
+  static const glassFillStrong = Color(0xFFFFFFFF);
+  static const glassBorder = Color(0xFFD2DFD9); // garis tepi klinis 1 px
+  static const glassShadow = Color(0x0D14201B); // bayangan tipis 5 %
 
-  /// Mist 75 % di bawah panel kaca: apa pun yang ada di belakang panel
-  /// (foto/daun) diredam sehingga teks sekunder tetap ≥ 4,5:1.
-  static const panelScrim = Color(0xBFF3F6F4);
+  /// Scrim halus di bawah overlay/panel di atas foto.
+  static const panelScrim = Color(0xE6F4F8F6);
 
   // ── Ilustrasi botani & latar editorial ────────────────────────────────
   /// Sisi gelap daun (kanal tengah) dan bayangan dasar rumpun.

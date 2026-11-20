@@ -33,6 +33,15 @@ class _SkinProgressPageState extends State<SkinProgressPage> {
   String _value(String name, double v) => '${v.toInt()}';
   String _unit(String name) => 'titik terdeteksi';
 
+  String _conditionLabel(String raw) => switch (raw.trim().toLowerCase()) {
+        'acne' => 'Jerawat',
+        'pih' => 'Noda Gelap',
+        'dark circle' => 'Lingkar Mata',
+        'redness' => 'Kemerahan',
+        'wrinkle' => 'Garis Halus',
+        _ => raw,
+      };
+
   String _statusSubtitle(SkinJourneyStore store) {
     if (!store.hasBaseline) return 'Belum ada scan awal';
     return switch (store.selectedJourneyStatus) {
@@ -133,18 +142,29 @@ class _SkinProgressPageState extends State<SkinProgressPage> {
                             children: [
                               for (final c in classes)
                                 ChoiceChip(
-                                  label: Text(c),
+                                  label: Text(_conditionLabel(c)),
                                   selected: selected == c,
+                                  selectedColor: SkinTokens.primary,
+                                  backgroundColor: Colors.white,
+                                  side: BorderSide(
+                                    color: selected == c
+                                        ? SkinTokens.primary
+                                        : SkinTokens.border,
+                                  ),
+                                  labelStyle: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: selected == c
+                                        ? Colors.white
+                                        : SkinTokens.ink,
+                                  ),
                                   onSelected: (_) =>
                                       setState(() => _selected = c),
                                 ),
                             ],
                           ),
                           const SizedBox(height: 12),
-                          SkinReveal(
-                            delay: const Duration(milliseconds: 80),
-                            child: _chartPanel(selected, values, isDetection),
-                          ),
+                          _chartPanel(selected, values, isDetection),
                           const SizedBox(height: 30),
                           SkinSectionTitle(
                             title: 'Timeline',
@@ -221,26 +241,21 @@ class _SkinProgressPageState extends State<SkinProgressPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'PERJALANAN KULITMU',
-                style: SkinTokens.eyebrow.copyWith(
-                  color: const Color(0xFFBFD8D2),
-                ),
-              ),
-              const SizedBox(height: 10),
               Text('Minggu ke-${store.currentWeek}',
                   style: const TextStyle(
-                      fontFamily: SkinTokens.serif,
-                      fontSize: 40,
-                      height: 1.0,
-                      fontWeight: FontWeight.w400,
+                      fontSize: 30,
+                      height: 1.1,
+                      letterSpacing: -.5,
+                      fontWeight: FontWeight.w800,
+                      fontFeatures: [FontFeature.tabularFigures()],
                       color: Colors.white)),
               const SizedBox(height: 4),
               Text(
                 'Dimulai ${SkinFormat.date(store.baselineDate!)}',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: .75),
+                style: const TextStyle(
+                  color: Color(0xFFD4E8E0),
                   fontSize: 13,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
               const SizedBox(height: 16),
@@ -296,9 +311,9 @@ class _SkinProgressPageState extends State<SkinProgressPage> {
         Expanded(
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(selected,
+          Text(_conditionLabel(selected),
               style: const TextStyle(
-                  fontSize: 19,
+                  fontSize: 18,
                   fontWeight: FontWeight.w800,
                   color: SkinTokens.ink)),
           const SizedBox(height: 3),

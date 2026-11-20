@@ -11,9 +11,9 @@ import'./app_colors.dart';
 /// Nama token lama dipertahankan agar seluruh halaman ikut berganti gaya.
 /// Warna inti merujuk ke [AppColors] agar hanya ada satu sumber nilai.
 abstract final class SkinTokens {
-  // ── Keluarga huruf ─────────────────────────────────────────────────────
+  // ── Keluarga huruf (hanya sans-serif modern — tanpa serif) ────────────
   static const sans = 'PlusJakartaSans';
-  static const serif = 'CormorantGaramond';
+  static const serif = sans;
 
   // ── Aksen ──────────────────────────────────────────────────────────────
   /// Aksen utama gelap: tombol penting & status aktif.
@@ -25,47 +25,47 @@ abstract final class SkinTokens {
   static const primaryDeep = Color(0xFF111413);
   static const aloe = primaryBright;
 
-  /// Aqua-sage lembut untuk lencana ikon dan cincin progres.
+  /// Aqua-sage lembut untuk lencana ikon dan status aktif.
   static const aqua = AppColors.aquaSage;
-  static const aquaDeep = Color(0xFF7FB0A4);
+  static const aquaDeep = Color(0xFF1E5643);
 
   // ── Netral ─────────────────────────────────────────────────────────────
   static const ink = AppColors.textPrimary;
   static const muted = AppColors.textSecondary;
-  static const subtle = Color(0xFF9AA8A3);
+  static const subtle = Color(0xFF7B8C85);
   static const background = AppColors.mistTop;
   static const backgroundLight = AppColors.mistBottom;
   static const surface = AppColors.white;
-  static const surfaceAlt = Color(0xFFF1F5F3);
-  static const border = Color(0xFFDCE5E0);
-  static const borderStrong = Color(0xFFC7D4CE);
+  static const surfaceAlt = AppColors.surfaceTint;
+  static const border = Color(0xFFD2DFD9);
+  static const borderStrong = Color(0xFFB8CAC2);
 
-  // ── Kaca ───────────────────────────────────────────────────────────────
-  static const glass = Color(0x8CFFFFFF); // putih 55%
-  static const glassStrong = AppColors.glassFillStrong; // putih 75%
-  static const glassSoft = Color(0x59FFFFFF); // putih 35%
-  static const glassBorder = AppColors.glassBorder; // putih 60%
-  static const glassBlur = 20.0;
+  // ── Permukaan kartu ────────────────────────────────────────────────────
+  static const glass = AppColors.glassFill;
+  static const glassStrong = AppColors.glassFillStrong;
+  static const glassSoft = Color(0xCCFFFFFF);
+  static const glassBorder = AppColors.glassBorder;
+  static const glassBlur = 16.0;
 
   // ── Tint lembut ────────────────────────────────────────────────────────
-  static const mint = Color(0xFFDCEAE5);
+  static const mint = AppColors.mintTint;
   static const mintStrong = aqua;
   static const cyan = Color(0xFFE2EEEC);
-  static const hero = aqua;
-  static const peach = Color(0xFFD9967A);
-  static const peachSoft = Color(0xFFF6EAE3);
+  static const hero = AppColors.forestDeep;
+  static const peach = Color(0xFFC46D4E);
+  static const peachSoft = Color(0xFFF9ECE6);
 
-  // ── Semantik (diredam agar selaras dengan palet sage) ──────────────────
-  static const coral = Color(0xFFB4515B);
-  static const coralSoft = Color(0xFFF5E5E6);
-  static const amber = Color(0xFF94701F);
-  static const amberSoft = Color(0xFFF4EDDC);
-  static const blue = Color(0xFF4C7C88);
-  static const blueSoft = Color(0xFFE2EDEF);
-  static const lavender = Color(0xFF6C69A3);
-  static const lavenderSoft = Color(0xFFEBEAF4);
-  static const success = Color(0xFF3E7D57);
-  static const successSoft = Color(0xFFE1EEE5);
+  // ── Semantik (terverifikasi WCAG AA ≥ 5.4:1) ───────────────────────────
+  static const coral = Color(0xFFA83B46);
+  static const coralSoft = Color(0xFFFBECEF);
+  static const amber = Color(0xFF7A5210);
+  static const amberSoft = Color(0xFFFBF3E1);
+  static const blue = Color(0xFF2F6472);
+  static const blueSoft = Color(0xFFE3EFF2);
+  static const lavender = Color(0xFF5D5994);
+  static const lavenderSoft = Color(0xFFECEBF6);
+  static const success = Color(0xFF1E5643);
+  static const successSoft = Color(0xFFE3F1EB);
 
   // ── Ruang & bentuk (basis 8) ───────────────────────────────────────────
   static const space = 16.0;
@@ -97,19 +97,19 @@ abstract final class SkinTokens {
       ];
 
   // ── Gradien ────────────────────────────────────────────────────────────
-  /// Gradien "aksi" gelap untuk tombol & elemen aktif.
+  /// Gradien aksi hutan klinis untuk tombol & elemen aktif.
   static const brandGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF34403C), Color(0xFF1A1A1A)],
+    colors: [Color(0xFF23644E), Color(0xFF163B2F)],
   );
 
   /// Panel gelap untuk kartu ringkasan berkontras tinggi.
   static const deepGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF3B4944), Color(0xFF1F2A27), Color(0xFF141816)],
-    stops: [0, .55, 1],
+    colors: [Color(0xFF1E5643), Color(0xFF163B2F), Color(0xFF102B22)],
+    stops: [0, .6, 1],
   );
   static const softGradient = LinearGradient(
     begin: Alignment.topLeft,
@@ -129,23 +129,22 @@ abstract final class SkinTokens {
   static const slow = Duration(milliseconds: 420);
 
   // ── Tipografi ──────────────────────────────────────────────────────────
-  // Display & title: serif kontras tinggi berbobot ringan.
-  // Section, card & body: sans geometris modern (Plus Jakarta Sans).
+  // Seluruh hierarki memakai satu keluarga sans geometris (Plus Jakarta Sans).
   static const display = TextStyle(
-    fontFamily: serif,
-    fontSize: 38,
-    height: 1.08,
-    fontWeight: FontWeight.w400,
-    color: ink,
-    letterSpacing: -.4,
-  );
-  static const title = TextStyle(
-    fontFamily: serif,
+    fontFamily: sans,
     fontSize: 32,
     height: 1.12,
-    fontWeight: FontWeight.w500,
+    fontWeight: FontWeight.w800,
     color: ink,
-    letterSpacing: -.2,
+    letterSpacing: -.6,
+  );
+  static const title = TextStyle(
+    fontFamily: sans,
+    fontSize: 24,
+    height: 1.18,
+    fontWeight: FontWeight.w800,
+    color: ink,
+    letterSpacing: -.4,
   );
   static const section = TextStyle(
     fontSize: 19,
@@ -210,30 +209,28 @@ abstract final class SkinTokens {
     // Garamond untuk aksen editorial (mis. kata vertikal "Natural").
     const textTheme = TextTheme(
       displayLarge: TextStyle(
-        fontFamily: serif,
-        fontSize: 140,
+        fontFamily: sans,
+        fontSize: 72,
         height: 1.0,
-        fontWeight: FontWeight.w300,
+        fontWeight: FontWeight.w700,
         color: ink,
-        letterSpacing: 14, // 0,1 em
+        letterSpacing: 6,
       ),
       displayMedium: TextStyle(
-        fontFamily: serif,
-        fontSize: 44,
-        height: 1.05,
-        fontWeight: FontWeight.w300,
+        fontFamily: sans,
+        fontSize: 36,
+        height: 1.1,
+        fontWeight: FontWeight.w800,
+        color: ink,
+        letterSpacing: -.6,
+      ),
+      displaySmall: TextStyle(
+        fontFamily: sans,
+        fontSize: 28,
+        height: 1.15,
+        fontWeight: FontWeight.w700,
         color: ink,
         letterSpacing: -.4,
-      ),
-      // Aksen serif miring yang dipadukan dengan headlineLarge; sedikit lebih
-      // besar untuk mengimbangi x-height Cormorant yang kecil.
-      displaySmall: TextStyle(
-        fontFamily: serif,
-        fontSize: 38,
-        height: 1.05,
-        fontWeight: FontWeight.w300,
-        fontStyle: FontStyle.italic,
-        color: ink,
       ),
       headlineLarge: TextStyle(
         fontSize: 32,
@@ -366,10 +363,11 @@ abstract final class SkinTokens {
           side: const BorderSide(color: surface, width: 1.5),
         ),
         titleTextStyle: const TextStyle(
-          fontFamily: serif,
-          fontSize: 26,
-          height: 1.15,
-          fontWeight: FontWeight.w500,
+          fontFamily: sans,
+          fontSize: 20,
+          height: 1.25,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -.3,
           color: ink,
         ),
         contentTextStyle: font(const TextStyle(

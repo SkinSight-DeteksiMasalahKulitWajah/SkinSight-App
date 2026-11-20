@@ -113,7 +113,7 @@ class ProfileData extends ChangeNotifier {
 
   Future<void> _pushFields(Map<String, dynamic> fields) async {
     if (!SupabaseDirect.isSignedIn && !_api.isAvailable) return;
-    if (_api.isAvailable) {
+    if (_api.shouldAttemptBackend) {
       try {
         await _api.put('/users/me', body: fields);
         return;
@@ -175,7 +175,7 @@ class ProfileData extends ChangeNotifier {
     final avatarUrl = SupabaseDirect.extractAvatarUrl(user);
 
     Map<String, dynamic>? json;
-    if (api.isAvailable) {
+    if (api.shouldAttemptBackend) {
       try {
         json = await api.post('/users/sync', body: {
           if (displayName != null) 'full_name': displayName,

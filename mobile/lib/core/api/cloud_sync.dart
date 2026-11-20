@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'api_client.dart';
+
 /// Sumber data yang dapat ditarik dari server saat login, di-flush sebelum logout,
 /// dan dibersihkan saat logout.
 abstract class CloudSyncable {
@@ -12,8 +14,9 @@ abstract class CloudSyncable {
 }
 
 /// Menghubungkan siklus login Supabase dengan penarikan data dari backend/Supabase.
-/// Tidak melakukan apa pun bila Supabase belum diinisialisasi (mis. widget test).
-class CloudSync {
+/// Mengekspos [isSyncing] dan [hasCompletedInitialSync] sebagai [ChangeNotifier]
+/// agar UI (Home, Riwayat, Journey) dapat menampilkan indikator loading yang rapi.
+class CloudSync extends ChangeNotifier {
   CloudSync._();
   static final instance = CloudSync._();
 
@@ -21,6 +24,11 @@ class CloudSync {
   StreamSubscription<AuthState>? _subscription;
   String? _activeUserId;
   Future<void>? _activePull;
+  bool _isSyncing = false;
+  bool _hasCompletedInitialSync = false;
+
+  bool get isSyncing => _isSyncing;
+  bool get hasCompletedInitialSync => _hasCompletedInitialSync;
 
   void attach(Iterable<CloudSyncable> targets) {
     _targets
@@ -46,9 +54,12 @@ class CloudSync {
         case AuthChangeEvent.signedOut:
           _activeUserId = null;
           _activePull = null;
+          _isSyncing = false;
+          _hasCompletedInitialSync = false;
           for (final t in _targets) {
             t.clearLocal();
           }
+          notifyListeners();
         default:
           break;
       }
@@ -58,37 +69,47 @@ class CloudSync {
   }
 
   Future<void> _pull(String userId) async {
-    if (_activeUserId == userId && _activePull != null) return;
+    if (_activeUserId == userId && _activePull != null) {
+      return _activePull!;
+    }
     _activeUserId = userId;
     final completer = Completer<void>();
     _activePull = completer.future;
+    _isSyncing = true;
+    notifyListeners();
     try {
-      for (final t in _targets) {
-        try {
-          await t.pullFromServer();
-        } on Object catch (e, s) {
-          debugPrint('Sinkron dari server gagal (${t.runtimeType}): $e');
-          debugPrintStack(stackTrace: s, maxFrames: 3);
-        }
-      }
+      // Tarik seluruh target secara paralel agar loading setelah login cepat.
+      await Future.wait([
+        for (final t in List<CloudSyncable>.of(_targets))
+          t.pullFromServer().catchError((Object e, StackTrace s) {
+            debugPrint('Sinkron dari server gagal (${t.runtimeType}): $e');
+            debugPrintStack(stackTrace: s, maxFrames: 3);
+          }),
+      ]);
+      _hasCompletedInitialSync = true;
     } finally {
+      _isSyncing = false;
       if (!completer.isCompleted) completer.complete();
+      notifyListeners();
     }
   }
 
   /// Paksa kirim semua perubahan lokal yang masih tertunda sebelum logout.
   Future<void> flushPending() async {
-    for (final t in _targets) {
-      try {
-        await t.flushPending().timeout(const Duration(seconds: 10));
-      } on Object catch (e) {
-        debugPrint('Flush sinkron sebelum keluar gagal (${t.runtimeType}): $e');
-      }
-    }
+    await Future.wait([
+      for (final t in List<CloudSyncable>.of(_targets))
+        t
+            .flushPending()
+            .timeout(const Duration(seconds: 12))
+            .catchError((Object e) {
+          debugPrint('Flush sinkron sebelum keluar gagal (${t.runtimeType}): $e');
+        }),
+    ]);
   }
 
-  /// Paksa tarik ulang (mis. setelah login atau tombol refresh).
-  Future<void> refresh() async {
+  /// Paksa tarik ulang (mis. setelah login atau pull-to-refresh).
+  Future<void> refresh({bool retryBackend = false}) async {
+    if (retryBackend) ApiClient.instance.resetCircuitBreaker();
     String? id = _activeUserId;
     if (id == null) {
       try {
