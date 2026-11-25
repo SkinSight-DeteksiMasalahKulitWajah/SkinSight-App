@@ -99,6 +99,11 @@ class ApiClient {
     _unreachableUntil = null;
   }
 
+  /// Tandai backend tidak terjangkau (dipakai pemanggil di luar [_send]).
+  void markUnreachable() {
+    _unreachableUntil = DateTime.now().add(_cooldown);
+  }
+
   Duration get _timeout => _everConnected ? _connectedTimeout : _probeTimeout;
 
   Uri _uri(String path, [Map<String, dynamic>? query]) {

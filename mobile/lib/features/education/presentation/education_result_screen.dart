@@ -13,6 +13,7 @@ import '../../journeys/data/skin_journey_store.dart';
 import '../../scan/models/skin_analysis.dart';
 import '../data/recommendation_service.dart';
 import '../data/skin_scan_education.dart';
+import 'widgets/halodoc_education_section.dart';
 
 /// Halaman detail hasil edukasi + rekomendasi perawatan LLM.
 ///
@@ -56,7 +57,9 @@ class _EducationResultScreenState extends State<EducationResultScreen> {
     _fetchRecommendation();
   }
 
-  Future<void> _fetchRecommendation() async {
+  /// [force] = dipicu pengguna (muat ulang / coba lagi): abaikan status
+  /// "server tidak terjangkau" dan tetap coba hubungi backend.
+  Future<void> _fetchRecommendation({bool force = false}) async {
     setState(() {
       _loading = true;
       _error = null;
@@ -90,6 +93,7 @@ class _EducationResultScreenState extends State<EducationResultScreen> {
         scanData: scanData,
         quizAnswers: store.answers,
         checkinHistory: checkinHistory,
+        force: force,
       );
 
       // Simpan hasil rekomendasi LLM ke riwayat scan Supabase agar tetap ada
@@ -152,7 +156,9 @@ class _EducationResultScreenState extends State<EducationResultScreen> {
                           tooltip: 'Muat ulang rekomendasi AI',
                           icon: Icons.refresh_rounded,
                           iconColor: SkinTokens.primary,
-                          onPressed: _loading ? null : _fetchRecommendation,
+                          onPressed: _loading
+                              ? null
+                              : () => _fetchRecommendation(force: true),
                         ),
                       ),
                       Expanded(
@@ -189,8 +195,8 @@ class _EducationResultScreenState extends State<EducationResultScreen> {
 
   Widget _buildLoading() => ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-        children: const [
-          ShimmerLoading(
+        children: [
+          const ShimmerLoading(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -211,8 +217,8 @@ class _EducationResultScreenState extends State<EducationResultScreen> {
               ],
             ),
           ),
-          SizedBox(height: 16),
-          Text(
+          const SizedBox(height: 16),
+          const Text(
             'Menyusun rekomendasi perawatan personal...',
             textAlign: TextAlign.center,
             style: TextStyle(
@@ -221,6 +227,9 @@ class _EducationResultScreenState extends State<EducationResultScreen> {
               fontWeight: FontWeight.w600,
             ),
           ),
+          // Edukasi Halodoc statis, jadi bisa dibaca selagi AI menyusun.
+          const SizedBox(height: 24),
+          HalodocEducationSection(findings: widget.analysis.visualFindings),
         ],
       );
 
@@ -240,7 +249,10 @@ class _EducationResultScreenState extends State<EducationResultScreen> {
           amount: _amount,
         ),
 
-        const SizedBox(height: 20),
+        const SizedBox(height: 24),
+        HalodocEducationSection(findings: widget.analysis.visualFindings),
+
+        const SizedBox(height: 14),
 
         // ─ Ringkasan AI (Deep Botanical Canopy) ─
         DecoratedBox(
@@ -445,10 +457,6 @@ class _EducationResultScreenState extends State<EducationResultScreen> {
   // ─── Fallback (statis, sama seperti sebelumnya + error banner) ───
 
   Widget _buildFallback(Uint8List? photo, bool needsCare) {
-    final educated = widget.analysis.visualFindings
-        .where(scanEducation.containsKey)
-        .toList(growable: false);
-
     return ListView(
       key: const Key('education-result-list'),
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
@@ -489,7 +497,7 @@ class _EducationResultScreenState extends State<EducationResultScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
-                      onPressed: _fetchRecommendation,
+                      onPressed: () => _fetchRecommendation(force: true),
                       icon: const Icon(Icons.refresh_rounded, size: 18),
                       label: const Text('Coba lagi'),
                     ),
@@ -505,32 +513,7 @@ class _EducationResultScreenState extends State<EducationResultScreen> {
           amount: _amount,
         ),
         const SizedBox(height: 24),
-        const SkinSectionTitle(
-          title: 'Edukasi perawatan',
-          subtitle: 'Panduan umum, bukan resep atau kepastian hasil.',
-        ),
-        const SizedBox(height: 12),
-        if (educated.isEmpty)
-          const SkinCard(
-            child: SkinEmptyState(
-              compact: true,
-              icon: Icons.menu_book_outlined,
-              title: 'Belum ada panduan khusus',
-              message:
-                  'Temuan pada sesi ini belum memiliki materi edukasi khusus.',
-            ),
-          )
-        else
-          for (final name in educated) ...[
-            _StaticEducationCard(
-              name: findingLabels[name] ?? name,
-              color: findingColor(name),
-              icon: findingIcon(name),
-              body: scanEducation[name]!.$1,
-              note: scanEducation[name]!.$2,
-            ),
-            const SizedBox(height: 10),
-          ],
+        HalodocEducationSection(findings: widget.analysis.visualFindings),
         if (needsCare)
           const SkinNotice(
             tone: SkinTone.danger,
@@ -880,95 +863,6 @@ class _IngredientCard extends StatelessWidget {
                   dense: true,
                 ),
             ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Kartu edukasi statis (fallback, identik dengan versi lama).
-class _StaticEducationCard extends StatelessWidget {
-  const _StaticEducationCard({
-    required this.name,
-    required this.color,
-    required this.icon,
-    required this.body,
-    required this.note,
-  });
-
-  final String name;
-  final Color color;
-  final IconData icon;
-  final String body;
-  final String note;
-
-  @override
-  Widget build(BuildContext context) {
-    return SkinCard(
-      padding: const EdgeInsets.fromLTRB(16, 16, 18, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: .14),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, size: 16, color: color),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                name,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: SkinTokens.ink,
-                  fontSize: 15,
-                ),
-              ),
-            ),
-          ]),
-          const SizedBox(height: 10),
-          Text(
-            body,
-            style: const TextStyle(
-              color: SkinTokens.ink,
-              fontSize: 13.5,
-              height: 1.55,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: .7),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Padding(
-                  padding: EdgeInsets.only(top: 1),
-                  child: Icon(Icons.schedule_rounded,
-                      size: 14, color: SkinTokens.muted),
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    note,
-                    style: const TextStyle(
-                      color: SkinTokens.muted,
-                      fontSize: 12,
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-              ],
-            ),
           ),
         ],
       ),
