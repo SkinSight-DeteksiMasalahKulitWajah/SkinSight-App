@@ -1,0 +1,28 @@
+{
+  "_note": "Data CONTOH untuk pengembangan. Ganti dengan katalog produk asli sebelum rilis.",
+  "ingredients": [
+    {"name": "Niacinamide", "description": "Membantu mengontrol minyak, menyamarkan tampilan pori, dan meratakan warna kulit.", "good_for": ["Minyak Berlebih", "Pori-pori", "Jerawat", "Noda"], "cautions": ["Mulai dari kadar rendah bila kulit sangat sensitif"]},
+    {"name": "Salicylic Acid", "description": "BHA yang membantu membersihkan pori dan mengurangi komedo serta jerawat.", "good_for": ["Jerawat", "Minyak Berlebih", "Pori-pori"], "cautions": ["Kulit sangat kering atau sensitif", "Hamil: konsultasikan ke dokter"]},
+    {"name": "Tea Tree", "description": "Ekstrak yang sering dipakai untuk membantu kulit berjerawat.", "good_for": ["Jerawat", "Minyak Berlebih"], "cautions": ["Dapat mengiritasi kulit sensitif"]},
+    {"name": "Centella Asiatica", "description": "Menenangkan kulit dan mendukung skin barrier.", "good_for": ["Kemerahan", "Skin Barrier"], "cautions": []},
+    {"name": "Ceramide", "description": "Lipid yang membantu menjaga skin barrier dan kelembapan.", "good_for": ["Skin Barrier", "Kulit Kering", "Kemerahan", "Kelembapan"], "cautions": []},
+    {"name": "Hyaluronic Acid", "description": "Humektan yang menarik dan menahan air di kulit.", "good_for": ["Kelembapan", "Kulit Kering", "Kemerahan"], "cautions": []},
+    {"name": "Vitamin C", "description": "Antioksidan yang membantu mencerahkan tampilan kulit.", "good_for": ["Noda", "Kusam"], "cautions": ["Dapat perih pada kulit sensitif"]},
+    {"name": "Sunscreen Filter", "description": "Filter UV untuk melindungi kulit dari paparan matahari.", "good_for": ["Noda", "Garis Halus", "Perlindungan UV"], "cautions": []},
+    {"name": "Retinol", "description": "Turunan vitamin A untuk tekstur dan garis halus.", "good_for": ["Garis Halus", "Jerawat"], "cautions": ["Hindari saat hamil", "Gunakan bertahap, malam hari"]}
+  ],
+  "products": [
+    {"name": "Contoh Gel Cleanser Salicylic", "brand": "SkinSight Sample", "category": "Cleanser", "price": 45000, "description": "Data contoh: pembersih untuk kulit berminyak dan berjerawat.", "ingredients": ["Salicylic Acid", "Tea Tree"]},
+    {"name": "Contoh Gentle Cleanser", "brand": "SkinSight Sample", "category": "Cleanser", "price": 38000, "description": "Data contoh: pembersih lembut untuk kulit sensitif.", "ingredients": ["Centella Asiatica", "Ceramide"]},
+    {"name": "Contoh Toner Niacinamide", "brand": "SkinSight Sample", "category": "Toner", "price": 59000, "description": "Data contoh: toner penyeimbang minyak.", "ingredients": ["Niacinamide", "Hyaluronic Acid"]},
+    {"name": "Contoh Serum Niacinamide 10%", "brand": "SkinSight Sample", "category": "Serum", "price": 89000, "description": "Data contoh: serum untuk pori dan minyak.", "ingredients": ["Niacinamide"]},
+    {"name": "Contoh Serum Hyaluronic", "brand": "SkinSight Sample", "category": "Serum", "price": 110000, "description": "Data contoh: serum pelembap ringan.", "ingredients": ["Hyaluronic Acid", "Ceramide"]},
+    {"name": "Contoh Serum Vitamin C", "brand": "SkinSight Sample", "category": "Serum", "price": 175000, "description": "Data contoh: serum pencerah.", "ingredients": ["Vitamin C"]},
+    {"name": "Contoh Barrier Cream", "brand": "SkinSight Sample", "category": "Moisturizer", "price": 99000, "description": "Data contoh: pelembap penguat skin barrier.", "ingredients": ["Ceramide", "Centella Asiatica", "Hyaluronic Acid"]},
+    {"name": "Contoh Gel Moisturizer", "brand": "SkinSight Sample", "category": "Moisturizer", "price": 49000, "description": "Data contoh: pelembap gel ringan untuk kulit berminyak.", "ingredients": ["Niacinamide", "Hyaluronic Acid"]},
+    {"name": "Contoh Sunscreen SPF 50", "brand": "SkinSight Sample", "category": "Sunscreen", "price": 79000, "description": "Data contoh: tabir surya harian.", "ingredients": ["Sunscreen Filter", "Niacinamide"]},
+    {"name": "Contoh Spot Treatment Jerawat", "brand": "SkinSight Sample", "category": "Treatment", "price": 35000, "description": "Data contoh: perawatan totol jerawat.", "ingredients": ["Salicylic Acid", "Tea Tree"]},
+    {"name": "Contoh Retinol Night Serum", "brand": "SkinSight Sample", "category": "Serum", "price": 220000, "description": "Data contoh: serum malam untuk tekstur dan garis halus.", "ingredients": ["Retinol", "Ceramide"]},
+    {"name": "Contoh Soothing Mask", "brand": "SkinSight Sample", "category": "Mask", "price": 65000, "description": "Data contoh: masker penenang kulit kemerahan.", "ingredients": ["Centella Asiatica", "Hyaluronic Acid"]}
+  ]
+}

@@ -5,9 +5,10 @@ perawatan kulit yang personal berdasarkan data scan + quiz + riwayat check-in.
 
 import json
 import logging
-from typing import List
+from typing import Any, List
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types as genai_types
 
 from app.core.config import settings
 from app.schemas.recommendation import (
@@ -232,61 +233,81 @@ def _parse_llm_response(text: str) -> RecommendationResult:
 
 
 class LLMService:
-    """Wrapper service untuk Google Gemini API."""
+    """Wrapper service untuk Google Gemini API (SDK google-genai) dengan rotasi multi-key."""
 
     def __init__(self):
-        self._model = None
+        self._clients: List[Any] = []
+        self._client: Any = None
+        self._active_index: int = 0
         self._configure()
 
     def _configure(self):
-        """Konfigurasi Gemini API client."""
-        api_key = settings.GEMINI_API_KEY
-        if not api_key:
+        """Konfigurasi satu atau lebih Gemini API client untuk rotasi/failover."""
+        api_keys = settings.gemini_api_keys
+        if not api_keys:
             logger.warning("GEMINI_API_KEY tidak dikonfigurasi. LLM service akan menggunakan fallback.")
+            self._clients = []
+            self._client = None
+            self._active_index = 0
             return
 
-        genai.configure(api_key=api_key)
-        self._model = genai.GenerativeModel(
-            model_name=settings.GEMINI_MODEL,
-            generation_config=genai.GenerationConfig(
-                temperature=0.7,
-                top_p=0.9,
-                top_k=40,
-                max_output_tokens=4096,
-            ),
-            safety_settings=[
-                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_ONLY_HIGH"},
-                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_ONLY_HIGH"},
-                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_ONLY_HIGH"},
-                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_ONLY_HIGH"},
-            ],
-        )
+        self._clients = [genai.Client(api_key=key) for key in api_keys]
+        self._client = self._clients[0]
+        self._active_index = 0
+        logger.info(f"LLM service terkonfigurasi dengan {len(self._clients)} Gemini API key.")
+
+    def _get_clients(self) -> List[Any]:
+        """Kembalikan daftar client aktif (tetap kompatibel dengan override _client di test)."""
+        if self._client is None:
+            return []
+        if self._clients and self._client is self._clients[0]:
+            return self._clients
+        return [self._client]
 
     async def generate_recommendation(
         self, request: RecommendationRequest
     ) -> RecommendationResult:
-        """Hasilkan rekomendasi perawatan kulit menggunakan Gemini."""
-        if self._model is None:
-            logger.info("LLM model tidak tersedia, menggunakan fallback statis.")
+        """Hasilkan rekomendasi perawatan kulit menggunakan Gemini dengan failover multi-key."""
+        clients = self._get_clients()
+        if not clients:
+            logger.info("LLM client tidak tersedia, menggunakan fallback statis.")
             return self._fallback_recommendation(request)
 
         prompt = _build_prompt(request)
+        total = len(clients)
+        start = self._active_index % total
 
-        try:
-            response = await self._model.generate_content_async(prompt)
+        for attempt in range(total):
+            idx = (start + attempt) % total
+            client = clients[idx]
+            try:
+                response = await client.aio.models.generate_content(
+                    model=settings.GEMINI_MODEL,
+                    contents=prompt,
+                    config=genai_types.GenerateContentConfig(
+                        temperature=0.7,
+                        top_p=0.9,
+                        top_k=40,
+                        max_output_tokens=4096,
+                        response_mime_type="application/json",
+                    ),
+                )
 
-            if not response.text:
-                logger.warning("Gemini mengembalikan respons kosong.")
-                return self._fallback_recommendation(request)
+                text = getattr(response, "text", None)
+                if not text:
+                    logger.warning(f"Gemini key #{idx + 1}/{total} mengembalikan respons kosong.")
+                    continue
 
-            return _parse_llm_response(response.text)
+                result = _parse_llm_response(text)
+                self._active_index = (idx + 1) % total
+                return result
 
-        except json.JSONDecodeError as e:
-            logger.error(f"Gagal parse JSON dari Gemini: {e}")
-            return self._fallback_recommendation(request)
-        except Exception as e:
-            logger.error(f"Error memanggil Gemini API: {e}")
-            return self._fallback_recommendation(request)
+            except json.JSONDecodeError as e:
+                logger.error(f"Gagal parse JSON dari Gemini key #{idx + 1}/{total}: {e}")
+            except Exception as e:
+                logger.error(f"Error memanggil Gemini API (key #{idx + 1}/{total}): {e}")
+
+        return self._fallback_recommendation(request)
 
     def _fallback_recommendation(
         self, request: RecommendationRequest

@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+
+import '../../../core/api/api_client.dart';
 
 /// Model data untuk satu edukasi temuan dari LLM.
 class FindingEducation {
@@ -18,6 +19,14 @@ class FindingEducation {
     required this.careTips,
     required this.timeline,
   });
+
+  Map<String, dynamic> toJson() => {
+        'finding': finding,
+        'finding_label': findingLabel,
+        'explanation': explanation,
+        'care_tips': careTips,
+        'timeline': timeline,
+      };
 
   factory FindingEducation.fromJson(Map<String, dynamic> json) =>
       FindingEducation(
@@ -47,6 +56,14 @@ class RoutineStep {
     required this.ingredientHighlights,
     required this.when,
   });
+
+  Map<String, dynamic> toJson() => {
+        'order': order,
+        'step_name': stepName,
+        'description': description,
+        'ingredient_highlights': ingredientHighlights,
+        'when': when,
+      };
 
   factory RoutineStep.fromJson(Map<String, dynamic> json) => RoutineStep(
         order: json['order'] as int? ?? 0,
@@ -84,6 +101,19 @@ class RecommendationResult {
     required this.disclaimer,
   });
 
+  Map<String, dynamic> toJson() => {
+        'summary': summary,
+        'skin_type_note': skinTypeNote,
+        'findings_education':
+            findingsEducation.map((e) => e.toJson()).toList(),
+        'routine': routine.map((e) => e.toJson()).toList(),
+        'recommended_ingredients': recommendedIngredients,
+        'avoid_ingredients': avoidIngredients,
+        'lifestyle_tips': lifestyleTips,
+        'medical_warning': medicalWarning,
+        'disclaimer': disclaimer,
+      };
+
   factory RecommendationResult.fromJson(Map<String, dynamic> json) =>
       RecommendationResult(
         summary: json['summary'] as String? ?? '',
@@ -117,17 +147,11 @@ class RecommendationResult {
 }
 
 /// Service untuk memanggil endpoint rekomendasi LLM di backend.
+/// Memakai `ApiClient.instance.baseUrl` yang sudah dinormalisasi (`/api/v1`)
+/// agar konsisten dengan seluruh endpoint CRUD backend.
 class RecommendationService {
   RecommendationService._();
   static final instance = RecommendationService._();
-
-  /// Ganti dengan URL backend Anda.
-  /// Untuk emulator Android: http://10.0.2.2:8000
-  /// Untuk device fisik: IP lokal atau URL production.
-  static const _baseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:8000',
-  );
 
   /// Meminta rekomendasi perawatan kulit ke backend LLM endpoint.
   ///
@@ -139,8 +163,9 @@ class RecommendationService {
     Map<String, String> quizAnswers = const {},
     List<Map<String, dynamic>> checkinHistory = const [],
   }) async {
-    final uri =
-        Uri.parse('$_baseUrl/api/v1/recommendation/generate');
+    final base = ApiClient.instance.baseUrl;
+    final uri = Uri.parse('$base/recommendation/generate');
+    final token = ApiClient.instance.accessToken;
 
     final body = jsonEncode({
       'scan': scanData,
@@ -153,7 +178,11 @@ class RecommendationService {
       final response = await http
           .post(
             uri,
-            headers: {'Content-Type': 'application/json'},
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              if (token != null) 'Authorization': 'Bearer $token',
+            },
             body: body,
           )
           .timeout(const Duration(seconds: 60));
@@ -176,7 +205,7 @@ class RecommendationService {
     }
   }
 
-  /// Konversi quiz answers dari format mobile (Map<String, String>)
+  /// Konversi quiz answers dari format mobile (`Map<String, String>`)
   /// ke format yang diharapkan backend.
   Map<String, String?> _mapQuizAnswers(Map<String, String> answers) => {
         'M01': answers['M01'],

@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import'../../journeys/data/skin_journey_store.dart';
+import '../../../core/api/api_client.dart';
+import '../../../core/api/supabase_direct.dart';
+import '../../journeys/data/skin_journey_store.dart';
 import'../../../core/theme/skin_theme.dart';
 import'../../../shared/widgets/skin_page_header.dart';
 import'../../../shared/widgets/skin_page_background.dart';
@@ -152,6 +155,28 @@ class _SkinQuizPageState extends State<SkinQuizPage> {
 
     SkinJourneyStore.instance
         .saveQuestionnaire(_answers, photoConsent: _consent);
+    // Simpan juga jawaban kuesioner ke database (tabel quiz_submissions) via
+    // backend dengan fallback otomatis langsung ke Supabase SDK.
+    final answersPayload = Map<String, dynamic>.of(_answers);
+    if (ApiClient.instance.isAvailable || SupabaseDirect.isSignedIn) {
+      unawaited(() async {
+        if (ApiClient.instance.shouldAttemptBackend) {
+          try {
+            await ApiClient.instance
+                .post('/quiz/submit', body: {'answers': answersPayload});
+            return;
+          } on Object catch (e) {
+            debugPrint(
+                'Simpan kuesioner via backend gagal, fallback ke Supabase: $e');
+          }
+        }
+        try {
+          await SupabaseDirect.submitQuiz(answersPayload);
+        } on Object catch (e) {
+          debugPrint('Simpan kuesioner ke Supabase gagal: $e');
+        }
+      }());
+    }
     if (_answers['M03'] == 'Sedang-berat') {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text(

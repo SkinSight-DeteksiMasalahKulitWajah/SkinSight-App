@@ -1,6 +1,11 @@
-import 'package:flutter/foundation.dart';
+import 'dart:async';
 
-import'../../journeys/data/skin_journey_store.dart';
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../../core/api/cloud_sync.dart';
+import '../../../core/api/supabase_direct.dart';
+import '../../journeys/data/skin_journey_store.dart';
 
 enum SkinNotificationDestination { scan, journey }
 
@@ -22,26 +27,64 @@ class SkinNotificationItem {
   final String kind;
 }
 
-/// Status dibaca disimpan selama sesi aplikasi. Isi notifikasi selalu dibangun
-/// ulang dari aktivitas Skin Journey agar tidak menjadi data contoh statis.
-class SkinNotificationCenter extends ChangeNotifier {
+/// Status dibaca disimpan per-user (lokal & bersih saat logout). Isi notifikasi
+/// selalu dibangun ulang dari aktivitas Skin Journey yang tersinkron di Supabase.
+class SkinNotificationCenter extends ChangeNotifier implements CloudSyncable {
   SkinNotificationCenter._();
 
   static final SkinNotificationCenter instance = SkinNotificationCenter._();
 
   final Set<String> _readIds = <String>{};
 
+  String get _prefsKey =>
+      'skinsight_read_notifications_${SupabaseDirect.userId ?? 'guest'}';
+
   bool isRead(String id) => _readIds.contains(id);
 
   void markRead(String id) {
-    if (_readIds.add(id)) notifyListeners();
+    if (_readIds.add(id)) {
+      notifyListeners();
+      unawaited(_persist());
+    }
   }
 
   void markAllRead(Iterable<SkinNotificationItem> notifications) {
     final before = _readIds.length;
     _readIds.addAll(notifications.map((item) => item.id));
-    if (_readIds.length != before) notifyListeners();
+    if (_readIds.length != before) {
+      notifyListeners();
+      unawaited(_persist());
+    }
   }
+
+  Future<void> _persist() async {
+    try {
+      await SharedPreferencesAsync()
+          .setStringList(_prefsKey, _readIds.toList(growable: false));
+    } on Object {
+      // Abaikan pada widget test tanpa plugin preferences.
+    }
+  }
+
+  @override
+  Future<void> pullFromServer() async {
+    try {
+      final stored =
+          await SharedPreferencesAsync().getStringList(_prefsKey) ?? const [];
+      _readIds
+        ..clear()
+        ..addAll(stored);
+      notifyListeners();
+    } on Object {
+      // Mode test/tanpa plugin preferences.
+    }
+  }
+
+  @override
+  Future<void> flushPending() => _persist();
+
+  @override
+  void clearLocal() => reset();
 
   @visibleForTesting
   void reset() {

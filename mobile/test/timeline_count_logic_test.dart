@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:skinsight/data/skin_journey_store.dart';
+import 'package:skinsight/features/journeys/data/skin_journey_store.dart';
 import 'package:skinsight/features/progress/domain/skin_timeline_policy.dart';
 import 'package:skinsight/features/progress/domain/skin_timeline_engine.dart';
 

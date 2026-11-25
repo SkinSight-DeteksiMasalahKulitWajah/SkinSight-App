@@ -1,15 +1,24 @@
 """
-SkinSight - Gradio Prototype dengan Model YOLO (.pt) dan LLM OpenAI (GPT-4o-mini).
+SkinSight - Gradio Prototype dengan Model YOLO (.pt) dan LLM Google Gemini.
 """
 
+import json
 import os
+import urllib.error
+import urllib.request
 from pathlib import Path
 from PIL import Image
 import cv2
 import gradio as gr
 from ultralytics import YOLO
-from openai import OpenAI
 from dotenv import load_dotenv
+
+try:
+    from google import genai
+    from google.genai import types as genai_types
+except ImportError:
+    genai = None
+    genai_types = None
 
 # ─── Load Environment & Path ──────────────────────────────────────────
 BASE_DIR = Path(__file__).resolve().parent
@@ -25,9 +34,96 @@ for p in env_paths:
         load_dotenv(p, override=True)
         break
 
-# Setup OpenAI API
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+# Setup Google Gemini API (mendukung banyak key dipisah koma untuk rotasi/failover)
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_API_KEYS = os.getenv("GEMINI_API_KEYS", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
+_gemini_key_index = 0
+
+
+def _parse_gemini_keys(*raw_sources: str) -> list[str]:
+    """Parse daftar Gemini API key valid dari string dipisah koma/baris."""
+    keys: list[str] = []
+    seen: set[str] = set()
+    for source in raw_sources:
+        for item in (source or "").replace("\n", ",").split(","):
+            key = item.strip()
+            if not key or key.startswith("YOUR_") or key in seen:
+                continue
+            seen.add(key)
+            keys.append(key)
+    return keys
+
+
+def _call_gemini_single_key(api_key: str, model: str, system_prompt: str, user_prompt: str) -> str:
+    """Panggil Gemini API via SDK google-genai (atau REST fallback jika SDK belum terpasang)."""
+    if genai is not None and genai_types is not None:
+        client = genai.Client(api_key=api_key)
+        response = client.models.generate_content(
+            model=model,
+            contents=user_prompt,
+            config=genai_types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                temperature=0.7,
+                max_output_tokens=4096,
+            ),
+        )
+        text = (getattr(response, "text", None) or "").strip()
+        if not text:
+            raise RuntimeError("Gemini mengembalikan respons kosong.")
+        return text
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+    payload = {
+        "systemInstruction": {"parts": [{"text": system_prompt}]},
+        "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
+        "generationConfig": {
+            "temperature": 0.7,
+            "maxOutputTokens": 4096,
+        },
+    }
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "x-goog-api-key": api_key,
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode("utf-8", errors="ignore")[:200]
+        raise RuntimeError(f"HTTP {e.code}: {detail}") from e
+
+    candidates = data.get("candidates") or []
+    parts = (candidates[0].get("content") or {}).get("parts") or [] if candidates else []
+    text = "".join(p.get("text", "") for p in parts if not p.get("thought")).strip()
+    if not text:
+        raise RuntimeError("Gemini mengembalikan respons kosong.")
+    return text
+
+
+def _generate_with_gemini(api_keys: list[str], model: str, system_prompt: str, user_prompt: str) -> str:
+    """Panggil Gemini API dengan rotasi round-robin dan failover otomatis antar key."""
+    global _gemini_key_index
+    total = len(api_keys)
+    start = _gemini_key_index % total
+    last_error: Exception | None = None
+
+    for attempt in range(total):
+        idx = (start + attempt) % total
+        try:
+            text = _call_gemini_single_key(api_keys[idx], model, system_prompt, user_prompt)
+            _gemini_key_index = (idx + 1) % total
+            return text
+        except Exception as e:
+            last_error = e
+            print(f"Gemini API Error (key #{idx + 1}/{total}): {e}")
+
+    raise RuntimeError(f"Semua {total} Gemini API key gagal. Error terakhir: {last_error}")
 
 # ─── Load YOLO Checkpoint (.pt) ──────────────────────────────────────
 CHECKPOINT_PATH = BASE_DIR / "SkinSight_Checkpoints" / "best.pt"
@@ -58,7 +154,7 @@ def analyze_and_recommend(
     sunscreen_freq: str,
     doctor_care: str,
     concerns: list,
-    openai_key_input: str,
+    gemini_key_input: str,
 ):
     if image is None:
         return None, "⚠️ Harap upload atau ambil foto wajah terlebih dahulu.", ""
@@ -134,29 +230,30 @@ FORMAT JAWABAN (Markdown rapi):
 5. **Disclaimer**: Bukan pengganti diagnosis medis resmi.
 """
 
-    # 4. Panggil OpenAI API
-    # Prioritaskan API Key dari input UI, jika kosong baca dari file .env
-    active_api_key = openai_key_input.strip() if openai_key_input.strip() else os.getenv("OPENAI_API_KEY", OPENAI_API_KEY).strip()
-    
-    llm_output_md = ""
-    if active_api_key and active_api_key.startswith("sk-"):
-        try:
-            client = OpenAI(api_key=active_api_key, timeout=20.0)
-            response = client.chat.completions.create(
-                model=OPENAI_MODEL,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                temperature=0.7,
-                max_tokens=1000,
-            )
-            llm_output_md = response.choices[0].message.content
-        except Exception as e:
-            print(f"OpenAI API Error: {e}")
-            llm_output_md = f"⚠️ *Error OpenAI API ({e}). Menampilkan rekomendasi cerdas lokal:*\n\n" + _offline_fallback(skin_type, detection_counts, irritation, doctor_care)
+    # 4. Panggil Google Gemini API (rotasi & failover multi-key)
+    # Prioritaskan API Key dari input UI, jika kosong baca dari file backend/.env
+    if gemini_key_input and gemini_key_input.strip():
+        active_api_keys = _parse_gemini_keys(gemini_key_input)
     else:
-        llm_output_md = "ℹ️ *Catatan: `OPENAI_API_KEY` belum diisi di kolom input atau file `.env`. Menampilkan rekomendasi berbasis aturan lokal:*\n\n" + _offline_fallback(skin_type, detection_counts, irritation, doctor_care)
+        active_api_keys = _parse_gemini_keys(
+            os.getenv("GEMINI_API_KEY", GEMINI_API_KEY),
+            os.getenv("GEMINI_API_KEYS", GEMINI_API_KEYS),
+        )
+
+    llm_output_md = ""
+    if active_api_keys:
+        try:
+            llm_output_md = _generate_with_gemini(
+                active_api_keys,
+                GEMINI_MODEL,
+                system_prompt,
+                user_prompt,
+            )
+        except Exception as e:
+            print(f"Gemini API Error: {e}")
+            llm_output_md = f"⚠️ *Error Gemini API ({e}). Menampilkan rekomendasi cerdas lokal:*\n\n" + _offline_fallback(skin_type, detection_counts, irritation, doctor_care)
+    else:
+        llm_output_md = "ℹ️ *Catatan: `GEMINI_API_KEY` belum diisi di kolom input atau file `backend/.env`. Menampilkan rekomendasi berbasis aturan lokal:*\n\n" + _offline_fallback(skin_type, detection_counts, irritation, doctor_care)
 
     return annotated_pil, detection_summary_md, llm_output_md
 
@@ -186,19 +283,19 @@ def _offline_fallback(skin_type, detection_counts, irritation, doctor_care):
 
 
 # ─── Antarmuka Gradio ────────────────────────────────────────────────
-with gr.Blocks(title="SkinSight - YOLO .pt & OpenAI Skincare Prototype", theme=gr.themes.Soft()) as demo:
-    gr.Markdown("""
-    # 🔬 SkinSight: Face Detection (.pt) & OpenAI Skincare Advisor
-    Prototype penggabungan model **YOLOv8 Detection (`best.pt`)** untuk mendeteksi 5 kondisi kulit wajah dan **OpenAI (GPT-4o-mini)** untuk merancang rutinitas perawatan.
+with gr.Blocks(title="SkinSight - YOLO .pt & Gemini Skincare Prototype", theme=gr.themes.Soft()) as demo:
+    gr.Markdown(f"""
+    # 🔬 SkinSight: Face Detection (.pt) & Gemini Skincare Advisor
+    Prototype penggabungan model **YOLOv8 Detection (`best.pt`)** untuk mendeteksi 5 kondisi kulit wajah dan **Google Gemini (`{GEMINI_MODEL}`)** untuk merancang rutinitas perawatan.
     """)
 
     with gr.Row():
         with gr.Column(scale=5):
             gr.Markdown("### 🔑 1. Pengaturan API Key")
-            openai_key_box = gr.Textbox(
+            gemini_key_box = gr.Textbox(
                 type="password",
-                placeholder="Masukkan OpenAI API Key (sk-...) atau isi di file backend/.env",
-                label="OpenAI API Key"
+                placeholder="Kosongkan untuk pakai GEMINI_API_KEY dari backend/.env, atau masukkan key (pisahkan koma jika banyak)",
+                label="Gemini API Key (Opsional)"
             )
 
             gr.Markdown("### 📷 2. Unggah Foto Wajah")
@@ -226,14 +323,14 @@ with gr.Blocks(title="SkinSight - YOLO .pt & OpenAI Skincare Prototype", theme=g
                 label="M07: Masalah yang ingin diperhatikan"
             )
 
-            btn_submit = gr.Button("🔍 Jalankan Deteksi (.pt) & Rekomendasi OpenAI", variant="primary", size="lg")
+            btn_submit = gr.Button("🔍 Jalankan Deteksi (.pt) & Rekomendasi Gemini", variant="primary", size="lg")
 
         with gr.Column(scale=6):
             gr.Markdown("### 🎯 4. Hasil Deteksi Visual YOLO")
             output_image = gr.Image(type="pil", label="Hasil Deteksi Bounding Box (.pt)")
             detection_summary = gr.Markdown(label="Statistik Deteksi")
 
-            gr.Markdown("### 🤖 5. Rekomendasi Perawatan Personal (OpenAI)")
+            gr.Markdown("### 🤖 5. Rekomendasi Perawatan Personal (Gemini)")
             output_llm = gr.Markdown(label="Rekomendasi Skincare")
 
     btn_submit.click(
@@ -250,7 +347,7 @@ with gr.Blocks(title="SkinSight - YOLO .pt & OpenAI Skincare Prototype", theme=g
             sunscreen_input,
             doctor_care_input,
             concerns_input,
-            openai_key_box,
+            gemini_key_box,
         ],
         outputs=[output_image, detection_summary, output_llm],
     )

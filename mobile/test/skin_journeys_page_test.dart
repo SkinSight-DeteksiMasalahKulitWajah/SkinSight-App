@@ -2,8 +2,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:skinsight/data/skin_journey_store.dart';
-import 'package:skinsight/pages/skin_journeys_page.dart';
+import 'package:skinsight/features/journeys/data/skin_journey_store.dart';
+import 'package:skinsight/features/journeys/presentation/skin_journeys_page.dart';
 
 void main() {
   final store = SkinJourneyStore.instance;
@@ -231,5 +231,28 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Journey Sensitif'), findsOneWidget);
     expect(find.text('Batal'), findsOneWidget);
+  });
+
+  testWidgets(
+      'moving a journey to trash shows an auto-dismissing snackbar promptly',
+      (tester) async {
+    final journey = store.beginNewJourney(name: 'Journey Cepat');
+    store.finalizeCurrentJourney('Journey Cepat');
+    await pumpPage(tester);
+
+    await tester.tap(find.byKey(Key('journey-menu-${journey.id}')));
+    await tester.pumpAndSettle();
+    final trashAction = find.byKey(Key('trash-journey-${journey.id}'));
+    await tester.ensureVisible(trashAction);
+    await tester.tap(trashAction);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Perjalanan dipindahkan ke sampah.'), findsOneWidget);
+    expect(find.text('Pulihkan'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Perjalanan dipindahkan ke sampah.'), findsNothing);
   });
 }

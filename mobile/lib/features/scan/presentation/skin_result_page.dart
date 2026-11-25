@@ -82,28 +82,39 @@ class _SkinResultPageState extends State<SkinResultPage> {
       return;
     }
     setState(() => _saving = true);
-    await SkinHistoryRepository.instance.saveLatest(
-      bytes,
-      findings: a.visualFindings,
-      skinType: a.skinType,
-      modelConnected: a.modelConnected,
-      isDemo: a.isDemo,
-      detectionCounts: a.detectionCounts,
-      segmentationAreas: a.segmentationAreas,
-      classConfidences: a.classConfidences,
-      skinTypeConfidence: a.skinTypeConfidence,
-      modelVersion: a.modelVersion,
-      quality: a.modelConnected ? 'pass' : 'unchecked',
-      faceRect: a.faceRect,
-      visualBoxes: a.visualBoxes,
-      imageWidth: a.imageWidth,
-      imageHeight: a.imageHeight,
-    );
+    try {
+      await SkinHistoryRepository.instance.saveLatest(
+        bytes,
+        findings: a.visualFindings,
+        skinType: a.skinType,
+        modelConnected: a.modelConnected,
+        isDemo: a.isDemo,
+        detectionCounts: a.detectionCounts,
+        segmentationAreas: a.segmentationAreas,
+        classConfidences: a.classConfidences,
+        skinTypeConfidence: a.skinTypeConfidence,
+        modelVersion: a.modelVersion,
+        quality: a.modelConnected ? 'pass' : 'unchecked',
+        faceRect: a.faceRect,
+        visualBoxes: a.visualBoxes,
+        imageWidth: a.imageWidth,
+        imageHeight: a.imageHeight,
+      );
+      await SkinJourneyStore.instance.syncNow();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _saved = true;
+          _saving = false;
+        });
+      }
+    }
     if (!mounted) return;
-    setState(() {
-      _saved = true;
-      _saving = false;
-    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Hasil scan tersimpan ke Riwayat & Skin Journey.'),
+      ),
+    );
     Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(builder: (_) => const SkinProgressPage()));
   }
@@ -253,24 +264,22 @@ class _SkinResultPageState extends State<SkinResultPage> {
                             ),
                             const SizedBox(height: 12),
                             if (hasData)
-                              SkinReveal(
-                                delay: const Duration(milliseconds: 140),
-                                child: SkinCard(
-                                  key: const Key('result-compact-findings-v10'),
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 16, vertical: 4),
-                                  child: Column(children: [
-                                    for (final c in found) ...[
-                                      if (c != found.first)
-                                        Divider(
-                                          height: 1,
-                                          color: Colors.white
-                                              .withValues(alpha: .9),
-                                        ),
-                                      _findingRow(c, analysis),
-                                    ],
-                                  ]),
-                                ),
+                              SkinCard(
+                                key: const Key('result-compact-findings-v10'),
+                                color: Colors.white,
+                                borderColor: SkinTokens.border,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 4),
+                                child: Column(children: [
+                                  for (final c in found) ...[
+                                    if (c != found.first)
+                                      const Divider(
+                                        height: 1,
+                                        color: SkinTokens.border,
+                                      ),
+                                    _findingRow(c, analysis),
+                                  ],
+                                ]),
                               )
                             else
                               const SkinCard(
@@ -455,7 +464,7 @@ class _SkinResultPageState extends State<SkinResultPage> {
                                       size: 20,
                                     ),
                               label: Text(
-                                _saving ? 'Menyimpan...' : 'Simpan ke Journey',
+                                _saving ? 'Menyimpan...' : 'Simpan ke Riwayat',
                               ),
                             ),
                           ),

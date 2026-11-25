@@ -3,13 +3,13 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:skinsight/data/skin_demo_data.dart';
-import 'package:skinsight/data/skin_journey_store.dart';
+import 'package:skinsight/features/scan/data/skin_demo_data.dart';
+import 'package:skinsight/features/journeys/data/skin_journey_store.dart';
 import 'package:skinsight/features/education/presentation/education_result_screen.dart';
-import 'package:skinsight/pages/skin_result_page.dart';
+import 'package:skinsight/features/scan/presentation/skin_result_page.dart';
 import 'package:skinsight/shared/widgets/skin_face_detection_overlay.dart';
-import 'package:skinsight/theme/skin_theme.dart';
-import 'package:skinsight/widgets/skin_ui.dart';
+import 'package:skinsight/core/theme/skin_theme.dart';
+import 'package:skinsight/shared/widgets/design_system/skin_ui.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

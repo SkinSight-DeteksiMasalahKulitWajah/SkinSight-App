@@ -39,13 +39,31 @@ class Settings(BaseSettings):
     SUPABASE_SERVICE_ROLE_KEY: str = ""
     SUPABASE_JWT_SECRET: str = ""
 
-    # ML Model Configuration
-    ML_MODEL_PATH: str = "models/skin_classifier.tflite"
-    USE_MOCK_ML: bool = True
+    # Email admin (dipisah koma) yang boleh mengelola katalog & artikel
+    ADMIN_EMAILS: str = ""
 
-    # LLM (Gemini API) Configuration
+    # ML Model Configuration
+    ML_MODEL_PATH: str = "models/all_conditions_detect_float32.tflite"
+    USE_MOCK_ML: bool = False
+
+    # LLM (Gemini API) Configuration (mendukung banyak key dipisah koma untuk rotasi/failover)
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-2.0-flash"
+    GEMINI_API_KEYS: str = ""
+    GEMINI_MODEL: str = "gemini-3.5-flash"
+
+    @property
+    def gemini_api_keys(self) -> List[str]:
+        """Parse daftar Gemini API key valid dari GEMINI_API_KEY / GEMINI_API_KEYS."""
+        keys: List[str] = []
+        seen = set()
+        for source in (self.GEMINI_API_KEY or "", self.GEMINI_API_KEYS or ""):
+            for item in source.replace("\n", ",").split(","):
+                key = item.strip()
+                if not key or key.startswith("YOUR_") or key in seen:
+                    continue
+                seen.add(key)
+                keys.append(key)
+        return keys
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 
-import'../../../core/app_assets.dart';
-import'../data/skin_journey_store.dart';
-import'../../../core/theme/skin_theme.dart';
-import'../../../shared/widgets/asset_images.dart';
-import'../../../shared/widgets/navigation/skin_bottom_nav.dart';
-import'../../../shared/widgets/skin_page_background.dart';
-import'../../../shared/widgets/skin_page_header.dart';
-import'../../../shared/widgets/skin_3d.dart';
-import'../../../shared/widgets/design_system/skin_ui.dart';
-import'../../progress/presentation/skin_progress_page.dart';
-import'../../scan/presentation/skin_quiz_page.dart';
+import '../../../core/api/cloud_sync.dart';
+import '../../../core/api/supabase_direct.dart';
+import '../../../core/app_assets.dart';
+import '../../../core/theme/skin_theme.dart';
+import '../../../shared/widgets/asset_images.dart';
+import '../../../shared/widgets/design_system/skin_ui.dart';
+import '../../../shared/widgets/navigation/skin_bottom_nav.dart';
+import '../../../shared/widgets/shimmer_skeleton.dart';
+import '../../../shared/widgets/skin_3d.dart';
+import '../../../shared/widgets/skin_page_background.dart';
+import '../../../shared/widgets/skin_page_header.dart';
+import '../../progress/presentation/skin_progress_page.dart';
+import '../../scan/presentation/skin_quiz_page.dart';
+import '../data/skin_journey_store.dart';
 
 class SkinJourneysPage extends StatelessWidget {
   const SkinJourneysPage({super.key});
@@ -139,15 +142,19 @@ class SkinJourneysPage extends StatelessWidget {
       case _JourneyAction.trash:
         store.moveJourneyToTrash(journey.id);
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Perjalanan dipindahkan ke sampah.'),
-              action: SnackBarAction(
-                label: 'Pulihkan',
-                onPressed: () => store.restoreJourney(journey.id),
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(
+                persist: false,
+                duration: const Duration(milliseconds: 2500),
+                content: const Text('Perjalanan dipindahkan ke sampah.'),
+                action: SnackBarAction(
+                  label: 'Pulihkan',
+                  onPressed: () => store.restoreJourney(journey.id),
+                ),
               ),
-            ),
-          );
+            );
         }
     }
   }
@@ -210,6 +217,7 @@ class SkinJourneysPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final store = SkinJourneyStore.instance;
+    final cloud = CloudSync.instance;
     return Scaffold(
       extendBody: true,
       backgroundColor: SkinTokens.background,
@@ -220,9 +228,11 @@ class SkinJourneysPage extends StatelessWidget {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: SkinTokens.maxWidth),
             child: AnimatedBuilder(
-              animation: store,
+              animation: Listenable.merge([store, cloud]),
               builder: (context, _) {
                 final journeys = store.journeys;
+                final isLoading =
+                    journeys.isEmpty && (cloud.isSyncing || store.isSyncing);
                 return Column(children: [
                   const SkinPageHeader(
                     title: 'Skin Journey',
@@ -230,71 +240,96 @@ class SkinJourneysPage extends StatelessWidget {
                     backKey: Key('journeys-back'),
                   ),
                   Expanded(
-                      child: ListView(
-                    key: const Key('journeys-list'),
-                    padding: const EdgeInsets.fromLTRB(
-                        20, 4, 20, SkinBottomNav.overlap + 16),
-                    children: [
-                      SkinReveal(
-                        child: _NewJourneyCard(
+                      child: RefreshIndicator(
+                    onRefresh: () async {
+                      if (!SupabaseDirect.isSignedIn) return;
+                      await CloudSync.instance.refresh(retryBackend: true);
+                    },
+                    color: SkinTokens.primary,
+                    child: ListView(
+                      key: const Key('journeys-list'),
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(
+                          20, 4, 20, SkinBottomNav.overlap + 16),
+                      children: [
+                        _NewJourneyCard(
                           onTap: () => _startJourney(context),
                         ),
-                      ),
-                      const SizedBox(height: 26),
-                      Row(
-                        children: [
-                          const Expanded(
-                            child: Text(
-                              'Perjalanan Saya',
-                              style: SkinTokens.section,
-                            ),
-                          ),
-                          SkinPill(
-                            label: '${journeys.length} perjalanan',
-                            tone: SkinTone.neutral,
-                          ),
-                          const SizedBox(width: 6),
-                          IconButton(
-                            key: const Key('open-journey-trash'),
-                            tooltip: 'Sampah',
-                            onPressed: () => Navigator.of(context).push<void>(
-                              MaterialPageRoute<void>(
-                                builder: (_) => const SkinJourneyTrashPage(),
+                        const SizedBox(height: 26),
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                'Perjalanan Saya',
+                                style: SkinTokens.section,
                               ),
                             ),
-                            icon: Badge(
-                              isLabelVisible: store.trashedJourneys.isNotEmpty,
-                              backgroundColor: SkinTokens.coral,
-                              label: Text('${store.trashedJourneys.length}'),
-                              child: const Icon(
-                                Icons.delete_outline_rounded,
-                                color: SkinTokens.muted,
+                            SkinPill(
+                              label: '${journeys.length} perjalanan',
+                              tone: SkinTone.neutral,
+                            ),
+                            const SizedBox(width: 6),
+                            IconButton(
+                              key: const Key('open-journey-trash'),
+                              tooltip: 'Sampah',
+                              onPressed: () => Navigator.of(context).push<void>(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const SkinJourneyTrashPage(),
+                                ),
+                              ),
+                              icon: Badge(
+                                isLabelVisible:
+                                    store.trashedJourneys.isNotEmpty,
+                                backgroundColor: SkinTokens.coral,
+                                label: Text('${store.trashedJourneys.length}'),
+                                child: const Icon(
+                                  Icons.delete_outline_rounded,
+                                  color: SkinTokens.muted,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      if (journeys.isEmpty)
-                        const _EmptyJourneys()
-                      else
-                        for (var index = 0;
-                            index < journeys.length;
-                            index++) ...[
-                          SkinReveal.staggered(
-                            index: index,
-                            child: _JourneyListItem(
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        if (isLoading)
+                          Column(
+                            key: const Key('journeys-loading-state'),
+                            children: [
+                              ShimmerLoading(
+                                child: Column(
+                                  children: [
+                                    for (var i = 0; i < 3; i++) ...[
+                                      const SkeletonBox(
+                                        height: 108,
+                                        borderRadius: BorderRadius.all(
+                                          Radius.circular(22),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ],
+                          )
+                        else if (journeys.isEmpty)
+                          const _EmptyJourneys()
+                        else
+                          for (var index = 0;
+                              index < journeys.length;
+                              index++) ...[
+                            _JourneyListItem(
                               journey: journeys[index],
                               onTap: () =>
                                   _openJourney(context, journeys[index]),
                               onMore: () =>
                                   _showActions(context, journeys[index]),
                             ),
-                          ),
-                          if (index < journeys.length - 1)
-                            const SizedBox(height: 12),
-                        ],
-                    ],
+                            if (index < journeys.length - 1)
+                              const SizedBox(height: 12),
+                          ],
+                      ],
+                    ),
                   )),
                 ]);
               },

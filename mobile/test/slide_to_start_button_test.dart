@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:skinsight/theme/skin_theme.dart';
-import 'package:skinsight/widgets/slide_to_start_button.dart';
+import 'package:skinsight/core/theme/skin_theme.dart';
+import 'package:skinsight/shared/widgets/slide_to_start_button.dart';
 
 void main() {
   Future<int Function()> pumpButton(WidgetTester tester) async {

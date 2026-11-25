@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:skinsight/features/profile/models/profile_data.dart';
 import 'package:skinsight/main.dart';
 
 import 'test_helpers.dart';
@@ -108,5 +111,31 @@ void main() {
 
     expect(find.text('Password berhasil diperbarui.'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('home header clips profile photo inside a concentric ClipOval',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(const SkinSightApp());
+    await tester.pumpAndSettle();
+    await enterHome(tester);
+
+    final samplePng = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==',
+    );
+    ProfileData.current!.updatePhoto(samplePng);
+    await tester.pumpAndSettle();
+
+    final photoFinder = find.byKey(const Key('home-profile-photo'));
+    expect(photoFinder, findsOneWidget);
+    expect(
+      find.ancestor(of: photoFinder, matching: find.byType(ClipOval)),
+      findsOneWidget,
+    );
+    expect(tester.getSize(photoFinder), const Size(40, 40));
   });
 }

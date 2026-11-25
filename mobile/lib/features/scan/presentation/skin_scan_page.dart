@@ -512,20 +512,6 @@ class _SkinScanPageState extends State<SkinScanPage>
                                     onCapture: () => _takePicture(isAuto: false),
                                     onSwitch: _switchCamera,
                                   ),
-                                  SizedBox(height: compact ? 8 : 12),
-                                  Text(
-                                    _automaticMode
-                                        ? 'Mode otomatis aktif: hadap kamera & tahan posisi stabil saat wajah berada di bingkai.'
-                                        : 'Mode manual aktif: posisikan wajah, lalu tekan tombol shutter saat siap.',
-                                    textAlign: TextAlign.center,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: Colors.white.withValues(alpha: .72),
-                                      fontSize: compact ? 12 : 13,
-                                      height: 1.35,
-                                    ),
-                                  ),
                                 ],
                               ),
                             ),
@@ -577,13 +563,13 @@ class _ScanHeader extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Scan Wajah',
+                    'Pindai Wajah',
                     style: TextStyle(
-                      fontFamily: SkinTokens.serif,
                       color: Colors.white,
-                      fontSize: 26,
-                      height: 1.05,
-                      fontWeight: FontWeight.w500,
+                      fontSize: 21,
+                      height: 1.15,
+                      letterSpacing: -.3,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -684,7 +670,7 @@ class _CameraFrame extends StatelessWidget {
               ),
             if (!loading && errorMessage == null)
               Align(
-                alignment: const Alignment(0, .9),
+                alignment: const Alignment(0, -.88),
                 child: _buildGuidancePill(compact),
               ),
           ],
