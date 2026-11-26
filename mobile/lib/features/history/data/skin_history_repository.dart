@@ -5,6 +5,7 @@ import '../../../core/api/api_client.dart';
 import '../../../core/api/cloud_storage.dart';
 import '../../../core/api/cloud_sync.dart';
 import '../../../core/api/supabase_direct.dart';
+import '../../../core/cache/local_cache.dart';
 import '../../scan/models/skin_analysis.dart';
 import '../../journeys/data/skin_journey_store.dart';
 
@@ -12,8 +13,11 @@ import '../../journeys/data/skin_journey_store.dart';
 /// lewat backend FastAPI dengan fallback otomatis langsung ke Supabase SDK.
 /// Daftar di memori hanya cache; tanpa sesi login (mis. widget test) perilakunya
 /// hanya di memori.
-class SkinHistoryRepository extends ChangeNotifier implements CloudSyncable {
-  SkinHistoryRepository._();
+class SkinHistoryRepository extends ChangeNotifier
+    implements CloudSyncable, LocalCacheable {
+  SkinHistoryRepository._() {
+    addListener(_scheduleCacheSave);
+  }
   static final SkinHistoryRepository instance = SkinHistoryRepository._();
   final List<SkinAnalysis> _records = [];
   final List<Future<void>> _inFlight = [];
@@ -292,8 +296,12 @@ class SkinHistoryRepository extends ChangeNotifier implements CloudSyncable {
           r.copyWith(selfieBytes: localById[r.id]?.selfieBytes),
       ];
       // Scan lokal yang belum ada di server (mis. dibuat saat offline): pertahankan & kirim ulang.
-      final unsynced =
-          _records.where((r) => !remoteIds.contains(r.id)).toList();
+      // Scan yang tidak ada di server dan tidak tertunda berarti sudah dihapus
+      // di perangkat lain (mis. berasal dari cache), jadi tidak dihidupkan lagi.
+      final unsynced = _records
+          .where((r) =>
+              !remoteIds.contains(r.id) && _pendingSyncIds.contains(r.id))
+          .toList();
       merged.addAll(unsynced);
       merged.sort((a, b) => b.analyzedAt.compareTo(a.analyzedAt));
       _records
@@ -331,8 +339,82 @@ class SkinHistoryRepository extends ChangeNotifier implements CloudSyncable {
     }
   }
 
+  // ---------------------------------------------------------------- cache
+
+  static const _cacheName = 'scan_history';
+  Timer? _cacheTimer;
+  bool _restoringCache = false;
+  final Set<String> _cachedPhotoIds = {};
+
+  void _scheduleCacheSave() {
+    if (_restoringCache || !LocalCache.instance.isActive) return;
+    _cacheTimer?.cancel();
+    _cacheTimer = Timer(
+        const Duration(milliseconds: 600), () => unawaited(_saveCache()));
+  }
+
+  Future<void> _saveCache() async {
+    final cache = LocalCache.instance;
+    if (!cache.isActive) return;
+    final snapshot = List<SkinAnalysis>.of(_records);
+    await cache.writeJson(_cacheName, {
+      'pending': _pendingSyncIds.toList(),
+      'records': [
+        for (final r in snapshot)
+          r.toApiJson(quality: r.modelConnected ? 'pass' : 'unchecked'),
+      ],
+    });
+    final current = <String>{};
+    for (final r in snapshot) {
+      current.add(r.id);
+      final bytes = r.selfieBytes;
+      if (bytes == null || _cachedPhotoIds.contains(r.id)) continue;
+      await cache.writeBytes('scans/${r.id}.jpg', bytes);
+      _cachedPhotoIds.add(r.id);
+    }
+    for (final id in _cachedPhotoIds.difference(current).toList()) {
+      await cache.deleteFile('scans/$id.jpg');
+      _cachedPhotoIds.remove(id);
+    }
+  }
+
+  @override
+  Future<void> loadFromCache() async {
+    final cache = LocalCache.instance;
+    final data = await cache.readJson(_cacheName);
+    if (data == null) return;
+    final restored = <SkinAnalysis>[];
+    for (final json
+        in ((data['records'] as List?) ?? const []).cast<Map<String, dynamic>>()) {
+      try {
+        var record = SkinAnalysis.fromApiJson(json);
+        final bytes = await cache.readBytes('scans/${record.id}.jpg');
+        if (bytes != null) {
+          record = record.copyWith(selfieBytes: bytes);
+          _cachedPhotoIds.add(record.id);
+        }
+        restored.add(record);
+      } on Object catch (e) {
+        debugPrint('Lewati scan cache yang rusak: $e');
+      }
+    }
+    _restoringCache = true;
+    try {
+      final known = {for (final r in _records) r.id};
+      _records.addAll(restored.where((r) => !known.contains(r.id)));
+      _records.sort((a, b) => b.analyzedAt.compareTo(a.analyzedAt));
+      _pendingSyncIds
+          .addAll(((data['pending'] as List?) ?? const []).cast<String>());
+      notifyListeners();
+    } finally {
+      _restoringCache = false;
+    }
+  }
+
   @override
   void clearLocal() {
+    _cacheTimer?.cancel();
+    _cachedPhotoIds.clear();
     _records.clear();
     _pendingSyncIds.clear();
     _hasLoadedFromServer = false;

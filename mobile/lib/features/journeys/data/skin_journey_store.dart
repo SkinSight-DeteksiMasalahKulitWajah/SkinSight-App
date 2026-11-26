@@ -7,6 +7,7 @@ import '../../../core/api/api_client.dart';
 import '../../../core/api/cloud_storage.dart';
 import '../../../core/api/cloud_sync.dart';
 import '../../../core/api/supabase_direct.dart';
+import '../../../core/cache/local_cache.dart';
 import'../../scan/data/skin_demo_data.dart';
 import'../../scan/models/skin_analysis.dart';
 import'../../progress/domain/skin_timeline_engine.dart';
@@ -17,10 +18,12 @@ enum CheckinPromptStatus { dueToday, lateThisWeek, resumedAfterMissedWeek }
 
 /// Beberapa journey per pengguna. Setiap journey menyimpan data timeline-nya
 /// sendiri; penghapusan bersifat soft-delete dan dapat dipulihkan dari sampah.
-class SkinJourneyStore extends ChangeNotifier implements CloudSyncable {
+class SkinJourneyStore extends ChangeNotifier
+    implements CloudSyncable, LocalCacheable {
   SkinJourneyStore._() {
     _createJourney(explicitlyCreated: false);
     addListener(_scheduleSync);
+    addListener(_scheduleCacheSave);
   }
   static final SkinJourneyStore instance = SkinJourneyStore._();
 
@@ -983,7 +986,16 @@ class SkinJourneyStore extends ChangeNotifier implements CloudSyncable {
 
   DateTime? _dt(Object? v) => v is String ? DateTime.tryParse(v) : null;
 
-  Future<SkinJourneyRecord> _recordFromServer(Map<String, dynamic> json) async {
+  /// [loadPhoto] menentukan sumber foto: default unduh dari Storage; saat
+  /// memulihkan dari cache, foto dibaca dari penyimpanan HP.
+  Future<SkinJourneyRecord> _recordFromServer(
+    Map<String, dynamic> json, {
+    Future<Uint8List?> Function(Map<String, dynamic> photo)? loadPhoto,
+  }) async {
+    final load = loadPhoto ??
+        (Map<String, dynamic> p) => (p['image_path'] as String?) == null
+            ? Future<Uint8List?>.value(null)
+            : CloudStorage.download(p['image_path'] as String);
     final meta = (json['meta'] as Map?)?.cast<String, dynamic>() ?? const {};
     final createdAt = _dt(meta['created_at']) ??
         DateTime.parse(json['created_at'] as String).toLocal();
@@ -1025,12 +1037,7 @@ class SkinJourneyStore extends ChangeNotifier implements CloudSyncable {
         .toList();
     for (var i = 0; i < photoJson.length; i += 3) {
       final batch = photoJson.skip(i).take(3).toList();
-      final images = await Future.wait([
-        for (final p in batch)
-          (p['image_path'] as String?) == null
-              ? Future<Uint8List?>.value(null)
-              : CloudStorage.download(p['image_path'] as String),
-      ]);
+      final images = await Future.wait([for (final p in batch) load(p)]);
       for (var k = 0; k < batch.length; k++) {
         final p = batch[k];
         final path = p['image_path'] as String?;
@@ -1181,16 +1188,32 @@ class SkinJourneyStore extends ChangeNotifier implements CloudSyncable {
         }
       }
 
+      var hadDirty = false;
       _applyingRemote = true;
       try {
         final remoteIds = rebuilt.map((r) => r.id).toSet();
+        final previouslyRemote = Set<String>.of(_remoteIds);
+        // Pertahankan journey yang belum pernah tersimpan di server (dibuat
+        // offline). Yang dulu ada di server tetapi kini hilang berarti sudah
+        // dihapus permanen di perangkat lain, jadi tidak dihidupkan lagi.
         final localOnly = _journeys
-            .where((j) => !remoteIds.contains(j.id) && j.isVisibleInCatalog)
+            .where((j) =>
+                !remoteIds.contains(j.id) &&
+                !previouslyRemote.contains(j.id) &&
+                j.isVisibleInCatalog)
             .toList();
+        // Perubahan lokal yang belum terkirim (mis. dibuat saat offline lalu
+        // dipulihkan dari cache) tidak boleh tertimpa versi server.
+        final dirty = <String, SkinJourneyRecord>{
+          for (final j in _journeys)
+            if (remoteIds.contains(j.id) && _hasUnsyncedChanges(j)) j.id: j,
+        };
+        hadDirty = dirty.isNotEmpty;
+        final oldLastSynced = Map<String, String>.of(_lastSynced);
         final selected = _selectedJourneyId;
         _journeys
           ..clear()
-          ..addAll(rebuilt)
+          ..addAll([for (final r in rebuilt) dirty[r.id] ?? r])
           ..addAll(localOnly);
         _remoteIds
           ..clear()
@@ -1204,8 +1227,14 @@ class SkinJourneyStore extends ChangeNotifier implements CloudSyncable {
         _lastSynced
           ..clear()
           ..addEntries(
-            rebuilt.map((r) => MapEntry(r.id, jsonEncode(_journeyBody(r)))),
+            rebuilt
+                .where((r) => !dirty.containsKey(r.id))
+                .map((r) => MapEntry(r.id, jsonEncode(_journeyBody(r)))),
           );
+        for (final id in dirty.keys) {
+          final old = oldLastSynced[id];
+          if (old != null) _lastSynced[id] = old;
+        }
 
         final stillValid =
             _journeys.any((j) => j.id == selected && j.deletedAt == null);
@@ -1237,8 +1266,9 @@ class SkinJourneyStore extends ChangeNotifier implements CloudSyncable {
       } finally {
         _applyingRemote = false;
       }
-      if (_journeys
-          .any((j) => !_remoteIds.contains(j.id) && j.isVisibleInCatalog)) {
+      if (hadDirty ||
+          _journeys
+              .any((j) => !_remoteIds.contains(j.id) && j.isVisibleInCatalog)) {
         _scheduleSync();
       }
     } finally {
@@ -1249,9 +1279,164 @@ class SkinJourneyStore extends ChangeNotifier implements CloudSyncable {
     }
   }
 
+  /// True bila journey punya perubahan lokal yang belum terkirim ke server.
+  bool _hasUnsyncedChanges(SkinJourneyRecord j) {
+    if (_lastSynced[j.id] != jsonEncode(_journeyBody(j))) return true;
+    final synced = _syncedCheckinIds[j.id] ?? const <String>{};
+    return j.checkins.any((c) => c.id != null && !synced.contains(c.id));
+  }
+
+  // ------------------------------------------------------------------
+  // Cache lokal di HP: journey, check-in, foto, dan status sinkronnya, agar
+  // perjalanan kulit tetap tampil saat offline dan langsung saat dibuka.
+  // ------------------------------------------------------------------
+  static const _cacheName = 'journeys';
+  Timer? _cacheTimer;
+  bool _restoringCache = false;
+  final Set<String> _cachedPhotoIds = {};
+
+  void _scheduleCacheSave() {
+    if (_restoringCache || !LocalCache.instance.isActive) return;
+    _cacheTimer?.cancel();
+    _cacheTimer = Timer(
+        const Duration(milliseconds: 600), () => unawaited(_saveCache()));
+  }
+
+  Future<void> _saveCache() async {
+    final cache = LocalCache.instance;
+    if (!cache.isActive) return;
+    final visible = _journeys.where((j) => j.isVisibleInCatalog).toList();
+    final data = <String, dynamic>{
+      'selected': _selectedJourneyId,
+      'remote_ids': _remoteIds.toList(),
+      'remote_deleted': _remoteDeleted.toList(),
+      'last_synced': _lastSynced,
+      'synced_checkins': {
+        for (final e in _syncedCheckinIds.entries) e.key: e.value.toList(),
+      },
+      'photo_paths': _photoPaths,
+      'journeys': [
+        for (final j in visible)
+          {
+            'id': j.id,
+            'title': j.name,
+            'status': j.status.name,
+            'is_pinned': j.isPinned,
+            'deleted_at': j.deletedAt?.toUtc().toIso8601String(),
+            'created_at': j.createdAt.toUtc().toIso8601String(),
+            'meta': _journeyMeta(j),
+            'checkins': [
+              for (final c in j.checkins)
+                {
+                  'id': c.id,
+                  'checkin_date': c.date.toIso8601String().substring(0, 10),
+                  'meta': _checkinMeta(c),
+                },
+            ],
+          },
+      ],
+    };
+    await cache.writeJson(_cacheName, data);
+
+    // Foto hanya ditulis sekali; placeholder (foto gagal unduh) tidak disimpan.
+    final current = <String>{};
+    for (final j in visible) {
+      for (final p in j.photos) {
+        current.add(p.id);
+        if (_cachedPhotoIds.contains(p.id) ||
+            identical(p.bytes, _placeholderPhoto) ||
+            p.bytes.isEmpty) {
+          continue;
+        }
+        await cache.writeBytes('journeys/${p.id}.jpg', p.bytes);
+        _cachedPhotoIds.add(p.id);
+      }
+    }
+    for (final id in _cachedPhotoIds.difference(current).toList()) {
+      await cache.deleteFile('journeys/$id.jpg');
+      _cachedPhotoIds.remove(id);
+    }
+  }
+
+  @override
+  Future<void> loadFromCache() async {
+    final cache = LocalCache.instance;
+    final data = await cache.readJson(_cacheName);
+    if (data == null) return;
+    final details = ((data['journeys'] as List?) ?? const [])
+        .cast<Map<String, dynamic>>();
+    if (details.isEmpty) return;
+
+    final restored = <SkinJourneyRecord>[];
+    for (final detail in details) {
+      try {
+        final record = await _recordFromServer(detail, loadPhoto: (p) async {
+          final id = p['id'] as String;
+          final bytes = await cache.readBytes('journeys/$id.jpg');
+          if (bytes != null) _cachedPhotoIds.add(id);
+          return bytes;
+        });
+        record.checkins.addAll(((detail['checkins'] as List?) ?? const [])
+            .cast<Map<String, dynamic>>()
+            .map(_checkinFromServer));
+        restored.add(record);
+      } on Object catch (e) {
+        debugPrint('Lewati journey cache yang rusak: $e');
+      }
+    }
+    if (restored.isEmpty) return;
+
+    _restoringCache = true;
+    _applyingRemote = true;
+    try {
+      // Journey yang sudah ada di memori (lebih baru) tidak ditimpa cache.
+      final inMemory = {
+        for (final j in _journeys)
+          if (j.isVisibleInCatalog) j.id: j,
+      };
+      _journeys
+        ..clear()
+        ..addAll([for (final r in restored) inMemory.remove(r.id) ?? r])
+        ..addAll(inMemory.values);
+      _remoteIds.addAll(
+          ((data['remote_ids'] as List?) ?? const []).cast<String>());
+      _remoteDeleted.addAll(
+          ((data['remote_deleted'] as List?) ?? const []).cast<String>());
+      for (final e in ((data['last_synced'] as Map?) ?? const {}).entries) {
+        _lastSynced.putIfAbsent(e.key as String, () => e.value as String);
+      }
+      for (final e
+          in ((data['synced_checkins'] as Map?) ?? const {}).entries) {
+        _syncedCheckinIds
+            .putIfAbsent(e.key as String, () => <String>{})
+            .addAll((e.value as List).cast<String>());
+      }
+      for (final e in ((data['photo_paths'] as Map?) ?? const {}).entries) {
+        _photoPaths.putIfAbsent(e.key as String, () => e.value as String);
+      }
+
+      final cachedSelected = data['selected'] as String?;
+      final selectable =
+          _journeys.where((j) => j.deletedAt == null && j.isVisibleInCatalog);
+      if (selectable.any((j) => j.id == cachedSelected)) {
+        _selectedJourneyId = cachedSelected;
+      } else if (selectable.isNotEmpty) {
+        _selectedJourneyId = selectable.first.id;
+      } else {
+        _createJourney(explicitlyCreated: false);
+      }
+      notifyListeners();
+    } finally {
+      _applyingRemote = false;
+      _restoringCache = false;
+    }
+  }
+
   @override
   void clearLocal() {
     _syncTimer?.cancel();
+    _cacheTimer?.cancel();
+    _cachedPhotoIds.clear();
     _applyingRemote = true;
     try {
       _journeys.clear();
