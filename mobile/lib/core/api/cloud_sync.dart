@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../cache/local_cache.dart';
 import 'api_client.dart';
 
 /// Sumber data yang dapat ditarik dari server saat login, di-flush sebelum logout,
@@ -23,6 +24,7 @@ class CloudSync extends ChangeNotifier {
   final List<CloudSyncable> _targets = [];
   StreamSubscription<AuthState>? _subscription;
   String? _activeUserId;
+  String? _cacheLoadedFor;
   Future<void>? _activePull;
   bool _isSyncing = false;
   bool _hasCompletedInitialSync = false;
@@ -59,6 +61,8 @@ class CloudSync extends ChangeNotifier {
           for (final t in _targets) {
             t.clearLocal();
           }
+          _cacheLoadedFor = null;
+          unawaited(LocalCache.instance.clearUser());
           notifyListeners();
         default:
           break;
@@ -78,6 +82,7 @@ class CloudSync extends ChangeNotifier {
     _isSyncing = true;
     notifyListeners();
     try {
+      await _loadCacheOnce(userId);
       // Tarik seluruh target secara paralel agar loading setelah login cepat.
       await Future.wait([
         for (final t in List<CloudSyncable>.of(_targets))
@@ -92,6 +97,23 @@ class CloudSync extends ChangeNotifier {
       if (!completer.isCompleted) completer.complete();
       notifyListeners();
     }
+  }
+
+  /// Pulihkan data dari cache HP sekali per pengguna, sebelum menarik dari
+  /// server, agar layar langsung terisi (juga saat offline). Tidak diulang pada
+  /// refresh berikutnya supaya data baru di memori tidak tertimpa cache lama.
+  Future<void> _loadCacheOnce(String userId) async {
+    if (_cacheLoadedFor == userId) return;
+    _cacheLoadedFor = userId;
+    LocalCache.instance.useUser(userId);
+    await Future.wait([
+      for (final t in List<CloudSyncable>.of(_targets))
+        if (t is LocalCacheable)
+          (t as LocalCacheable).loadFromCache().catchError((Object e) {
+            debugPrint('Muat cache lokal gagal (${t.runtimeType}): $e');
+          }),
+    ]);
+    notifyListeners();
   }
 
   /// Paksa kirim semua perubahan lokal yang masih tertunda sebelum logout.

@@ -7,6 +7,7 @@ import '../../../core/api/api_client.dart';
 import '../../../core/api/cloud_storage.dart';
 import '../../../core/api/cloud_sync.dart';
 import '../../../core/api/supabase_direct.dart';
+import '../../../core/cache/local_cache.dart';
 
 /// Data profil pengguna. Disimpan di tabel `profiles` lewat backend
 /// (`GET/PUT /users/me`) dengan fallback otomatis langsung ke Supabase SDK.
@@ -79,6 +80,7 @@ class ProfileData extends ChangeNotifier {
     if (trimmed.isEmpty) return;
     name = trimmed;
     notifyListeners();
+    _cacheFields({'full_name': trimmed});
     _trackWrite(_pushName(trimmed));
   }
 
@@ -86,6 +88,7 @@ class ProfileData extends ChangeNotifier {
     final trimmed = value.trim();
     phone = trimmed;
     notifyListeners();
+    _cacheFields({'phone': trimmed});
     _trackWrite(_pushFields({'phone': trimmed}));
   }
 
@@ -98,6 +101,7 @@ class ProfileData extends ChangeNotifier {
   void updatePhoto(Uint8List value) {
     photoBytes = value;
     notifyListeners();
+    unawaited(LocalCache.instance.writeBytes(_avatarCacheName, value));
     _trackWrite(_pushAvatar(value));
   }
 
@@ -193,6 +197,7 @@ class ProfileData extends ChangeNotifier {
 
     if (json == null) return;
     _lastRemote = json;
+    unawaited(LocalCache.instance.writeJson(_profileCacheName, json));
     await current?._applyRemote(json);
   }
 
@@ -220,9 +225,44 @@ class ProfileData extends ChangeNotifier {
       if (bytes != null && bytes.isNotEmpty) {
         photoBytes = bytes;
         notifyListeners();
+        unawaited(LocalCache.instance.writeBytes(_avatarCacheName, bytes));
       }
     } on Object catch (e) {
       debugPrint('Gagal memuat foto profil ($path): $e');
+    }
+    // Offline / gagal unduh: pakai salinan foto profil di HP.
+    if (photoBytes == null) {
+      final cached = await LocalCache.instance.readBytes(_avatarCacheName);
+      if (cached != null) {
+        photoBytes = cached;
+        notifyListeners();
+      }
+    }
+  }
+
+  static const _profileCacheName = 'profile';
+  static const _avatarCacheName = 'avatar.jpg';
+
+  /// Perbarui salinan profil di cache HP setelah pengguna mengubah data.
+  static void _cacheFields(Map<String, dynamic> fields) {
+    final updated = {...?_lastRemote, ...fields};
+    _lastRemote = updated;
+    unawaited(LocalCache.instance.writeJson(_profileCacheName, updated));
+  }
+
+  /// Pulihkan profil & foto dari cache HP (tampil langsung, juga saat offline).
+  static Future<void> _loadFromCache() async {
+    final cache = LocalCache.instance;
+    final json = await cache.readJson(_profileCacheName);
+    final avatar = await cache.readBytes(_avatarCacheName);
+    if (json != null && _lastRemote == null) {
+      _lastRemote = json;
+      current?._apply(json);
+    }
+    final profile = current;
+    if (avatar != null && profile != null && profile.photoBytes == null) {
+      profile.photoBytes = avatar;
+      profile.notifyListeners();
     }
   }
 
@@ -241,7 +281,10 @@ class ProfileData extends ChangeNotifier {
   }
 }
 
-class _ProfileSyncTarget implements CloudSyncable {
+class _ProfileSyncTarget implements CloudSyncable, LocalCacheable {
+  @override
+  Future<void> loadFromCache() => ProfileData._loadFromCache();
+
   @override
   Future<void> pullFromServer() => ProfileData._pullRemote();
 

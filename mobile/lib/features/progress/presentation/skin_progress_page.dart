@@ -727,42 +727,12 @@ class _SkinProgressPageState extends State<SkinProgressPage> {
                         Text(e.description, style: SkinTokens.caption),
                       ] else ...[
                         for (final item in e.classItems) ...[
-                          const SizedBox(height: 10),
-                          Row(children: [
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: const BoxDecoration(
-                                color: SkinTokens.primary,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 7),
-                            Expanded(
-                              child: Text(item.name,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                      color: SkinTokens.ink,
-                                      fontSize: 13)),
-                            ),
-                          ]),
-                          const SizedBox(height: 3),
-                          Text(item.message, style: SkinTokens.caption),
-                          if (item.focus.isNotEmpty) ...[
-                            const SizedBox(height: 3),
-                            Text(item.focus, style: SkinTokens.caption),
-                          ],
-                          for (final note in item.notes) ...[
-                            const SizedBox(height: 4),
-                            Text(note, style: SkinTokens.caption),
-                          ],
-                          if (item.source != 'Dokumentasi SkinSight')
-                            Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Text('Referensi: ${item.source}',
-                                    style: const TextStyle(
-                                        fontSize: 10.5,
-                                        color: SkinTokens.subtle))),
+                          const SizedBox(height: 8),
+                          _TimelineClassAccordion(
+                            key: Key(
+                                'timeline-class-${e.date.toIso8601String()}-${item.name}'),
+                            item: item,
+                          ),
                         ],
                         if (e.isMissed) ...[
                           const SizedBox(height: 6),
@@ -1168,6 +1138,103 @@ class _SummaryMetric extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Satu kondisi kulit pada kartu timeline, bisa dibuka/tutup (accordion).
+/// Tertutup secara bawaan agar timeline ringkas; ketuk judul untuk detail.
+class _TimelineClassAccordion extends StatefulWidget {
+  const _TimelineClassAccordion({super.key, required this.item});
+
+  final TimelineClassContent item;
+
+  @override
+  State<_TimelineClassAccordion> createState() =>
+      _TimelineClassAccordionState();
+}
+
+class _TimelineClassAccordionState extends State<_TimelineClassAccordion> {
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final item = widget.item;
+    return Container(
+      decoration: BoxDecoration(
+        color: SkinTokens.surfaceAlt,
+        borderRadius: BorderRadius.circular(SkinTokens.radiusSm),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Material(
+            type: MaterialType.transparency,
+            borderRadius: BorderRadius.circular(SkinTokens.radiusSm),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () => setState(() => _open = !_open),
+              child: ConstrainedBox(
+                // Target sentuh minimum 44 px.
+                constraints: const BoxConstraints(minHeight: 44),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+                  child: Row(children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: SkinTokens.primary,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(item.name,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: SkinTokens.ink,
+                              fontSize: 13)),
+                    ),
+                    AnimatedRotation(
+                      turns: _open ? .5 : 0,
+                      duration: SkinTokens.fast,
+                      child: const Icon(Icons.keyboard_arrow_down_rounded,
+                          color: SkinTokens.muted, size: 22),
+                    ),
+                  ]),
+                ),
+              ),
+            ),
+          ),
+          // Tanpa animasi ukuran: kartu timeline diukur dengan IntrinsicHeight,
+          // dan AnimatedSize yang menyusut di dalamnya membuat kartu overflow.
+          if (_open)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(26, 0, 12, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(item.message, style: SkinTokens.caption),
+                  if (item.focus.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(item.focus, style: SkinTokens.caption),
+                  ],
+                  for (final note in item.notes) ...[
+                    const SizedBox(height: 4),
+                    Text(note, style: SkinTokens.caption),
+                  ],
+                  if (item.source != 'Dokumentasi SkinSight')
+                    Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text('Referensi: ${item.source}',
+                            style: const TextStyle(
+                                fontSize: 10.5, color: SkinTokens.subtle))),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }

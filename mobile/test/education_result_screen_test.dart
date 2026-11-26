@@ -63,8 +63,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(EducationResultScreen), findsOneWidget);
-    expect(find.text('Hasil Edukasi'), findsOneWidget);
-    expect(find.text('Jerawat'), findsOneWidget);
+    expect(find.text('Edukasi Perawatan'), findsOneWidget);
+    expect(find.text('Edukasi Jerawat'), findsOneWidget);
 
     final careNotice = find.textContaining('utamakan arahan tenaga kesehatan');
     await tester.scrollUntilVisible(
