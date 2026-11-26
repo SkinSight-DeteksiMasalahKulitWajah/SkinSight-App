@@ -158,12 +158,23 @@ class RecommendationService {
   /// [scanData] berisi hasil scan wajah on-device.
   /// [quizAnswers] berisi jawaban kuesioner M01–M07.
   /// [checkinHistory] berisi riwayat check-in mingguan (opsional).
+  ///
+  /// Bila backend baru saja gagal dihubungi, langsung gagal tanpa menunggu,
+  /// kecuali [force] (tombol muat ulang / coba lagi dari pengguna).
   Future<RecommendationResult> getRecommendation({
     required Map<String, dynamic> scanData,
     Map<String, String> quizAnswers = const {},
     List<Map<String, dynamic>> checkinHistory = const [],
+    bool force = false,
   }) async {
-    final base = ApiClient.instance.baseUrl;
+    final api = ApiClient.instance;
+    if (force) {
+      api.resetCircuitBreaker();
+    } else if (!api.isReachableNow) {
+      throw Exception(
+          'Server rekomendasi sedang tidak terjangkau. Coba lagi nanti.');
+    }
+    final base = api.baseUrl;
     final uri = Uri.parse('$base/recommendation/generate');
     final token = ApiClient.instance.accessToken;
 
@@ -185,7 +196,7 @@ class RecommendationService {
             },
             body: body,
           )
-          .timeout(const Duration(seconds: 60));
+          .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;
@@ -197,8 +208,13 @@ class RecommendationService {
         );
       }
     } on TimeoutException {
+      // Tidak menandai server mati: AI bisa saja hanya lambat menjawab.
       throw Exception(
           'Koneksi ke server timeout. Periksa koneksi internet.');
+    } on http.ClientException catch (e) {
+      // Gagal tersambung sama sekali: lewati percobaan berikutnya selama cooldown.
+      api.markUnreachable();
+      throw Exception('Gagal menghubungi server rekomendasi: ${e.message}');
     } catch (e) {
       if (e is Exception) rethrow;
       throw Exception('Gagal menghubungi server rekomendasi: $e');
